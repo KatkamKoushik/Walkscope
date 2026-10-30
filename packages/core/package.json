@@ -1,0 +1,20 @@
+{
+  "name": "@walking-companion/core",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./domain": "./domain/index.ts",
+    "./routing": "./providers/routing/clientRoutingService.ts",
+    "./routeSteps": "./providers/routing/routeSteps.js"
+  },
+  "dependencies": {
+    "@mapbox/vector-tile": "^1.3.1",
+    "pbf": "^3.3.0"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "name": "walking-context-companion",
+  "version": "1.0.0",
+  "description": "Mobile Walking Context & Route Companion with transparent geospatial layers and multi-provider imagery",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "pretest": "npm run build:server",
+    "test": "node --test",
+    "test:server": "npm run --workspace=@walking-companion/server build && node --test packages/server/src/*.test.mjs",
+    "typecheck": "npm run typecheck:core && npm run typecheck:mobile && npm run typecheck:server",
+    "typecheck:core": "tsc -p packages/core/tsconfig.json",
+    "typecheck:mobile": "npm run --workspace=packages/mobile typecheck",
+    "typecheck:server": "npm run --workspace=@walking-companion/server typecheck",
+    "build:server": "npm run --workspace=@walking-companion/server build",
+    "start:server": "npm run --workspace=@walking-companion/server start",
+    "dev:server": "npm run --workspace=@walking-companion/server dev",
+    "lint": "eslint packages/core packages/server"
+  },
+  "keywords": [
+    "walking-companion",
+    "route-comparison",
+    "geospatial",
+    "osint",
+    "mapillary",
+    "kartaview",
+    "panoramax",
+    "street-view"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@mapbox/vector-tile": "^1.3.1",
+    "pbf": "^3.3.0"
+  },
+  "devDependencies": {
+    "eslint": "^10.13.0"
+  }
+}

@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Restrict permissions to read-only for least-privilege security
+permissions:
+  contents: read
+
+jobs:
+  tier-a-quality-gate:
+    name: Tier A — Fast Quality Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Deterministic Clean Install
+        run: npm ci
+
+      - name: Code Quality & Lint Check
+        run: npm run lint
+
+      - name: Repository Secret Scanning
+        uses: trufflesecurity/trufflehog@v3.88.5
+        with:
+          extra_args: --only-verified
+
+      - name: TypeScript Static Analysis (Core, Mobile & Server)
+        run: npm run typecheck
+
+      - name: Expo Doctor Health Check
+        working-directory: packages/mobile
+        run: npx expo-doctor
+
+      - name: Offline Core Unit Test Suite
+        run: npm test
