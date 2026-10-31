@@ -163,11 +163,14 @@ export function buildOverpassQuery(bounds, timeoutSec = 10) {
 (
   node["highway"="bus_stop"](${bbox});
   node["railway"~"subway_entrance|station"](${bbox});
+  way["railway"~"subway_entrance|station"](${bbox});
   node["amenity"~"police|fire_station|hospital|pharmacy|clinic"](${bbox});
+  way["amenity"~"police|fire_station|hospital|pharmacy|clinic"](${bbox});
   node["shop"="convenience"](${bbox});
+  way["shop"="convenience"](${bbox});
   node["highway"="street_lamp"](${bbox});
 );
-out body;`;
+out center;`;
 }
 
 /**
@@ -198,7 +201,9 @@ export function categorizeOsmTags(tags = {}) {
  */
 export function normalizeOsmElement(element) {
   if (!element || typeof element !== 'object') return null;
-  if (typeof element.lat !== 'number' || typeof element.lon !== 'number') return null;
+  const lat = typeof element.lat === 'number' ? element.lat : element.center?.lat;
+  const lon = typeof element.lon === 'number' ? element.lon : element.center?.lon;
+  if (typeof lat !== 'number' || typeof lon !== 'number') return null;
 
   const tags = element.tags || {};
   const category = categorizeOsmTags(tags);
@@ -216,7 +221,7 @@ export function normalizeOsmElement(element) {
     name,
     category,
     type,
-    coordinates: [element.lon, element.lat],
+    coordinates: [lon, lat],
     verificationStatus: 'mapped_unverified',
     disclaimer: OVERPASS_DISCLAIMER,
     source: 'OpenStreetMap (ODbL)',

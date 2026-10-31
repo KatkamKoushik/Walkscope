@@ -1,0 +1,37 @@
+version: 2
+updates:
+  # Maintain dependencies for npm packages across monorepo
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    groups:
+      expo:
+        patterns:
+          - "expo*"
+          - "@expo/*"
+      react-ecosystem:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "react-native*"
+          - "@react-native/*"
+      tooling:
+        patterns:
+          - "typescript"
+          - "eslint*"
+          - "@typescript-eslint/*"
+
+  # Maintain GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5

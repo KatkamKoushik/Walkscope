@@ -1,5 +1,5 @@
 import { readResponseBytesCapped } from '../common/http.js';
-import { stripTileLayers } from './trim.js';
+import { stripTileLayers } from './mapillaryServerTrim.js';
 
 /** Mapillary vector tiles, /{layer}/2/{z}/{x}/{y}: the only host the token goes to. */
 const TILE_HOST = 'https://tiles.mapillary.com/maps/vtp';

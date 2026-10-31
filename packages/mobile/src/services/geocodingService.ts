@@ -195,7 +195,26 @@ export async function searchDestinations(query: string): Promise<LocationPoint[]
     }
   } catch {
     clearTimeout(photonTimer);
-    // Fall back to local matches
+    // Fall back to local offline matches
+  }
+
+  // Offline fallback: try matching local stored recent searches in addition to benchmark points
+  try {
+    const { getRecentSearches } = await import('./storageService');
+    const recent = await getRecentSearches(10);
+    const recentMatches: LocationPoint[] = (recent || [])
+      .filter((r) => r.display_name?.toLowerCase().includes(q) || r.query?.toLowerCase().includes(q))
+      .map((r) => ({
+        title: r.display_name,
+        subtitle: `Saved search (${r.query})`,
+        latitude: r.lat,
+        longitude: r.lon,
+      }));
+    if (recentMatches.length > 0) {
+      return [...localMatches, ...recentMatches];
+    }
+  } catch {
+    // Local SQLite storage not initialized or unavailable in current runtime
   }
 
   return localMatches;

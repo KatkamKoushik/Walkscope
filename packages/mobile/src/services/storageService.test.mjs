@@ -328,4 +328,78 @@ describe('storageService (SQLite Local Storage & Zero-Telemetry Privacy)', () =>
       assert.equal(remainingSearches.length, 0);
     });
   });
+
+  describe('concurrency, boundary sanitization, and SQL injection resistance', () => {
+    it('handles high-concurrency burst writes (50 parallel saves) without corruption', async () => {
+      const promises = [];
+      for (let i = 0; i < 50; i++) {
+        promises.push(
+          saveJourney({
+            id: `concurrent-${i}`,
+            title: `Burst Journey ${i}`,
+            origin_name: `Point ${i}`,
+            origin_lat: 12.97 + i * 0.001,
+            origin_lon: 77.60 + i * 0.001,
+            dest_name: `Destination ${i}`,
+            dest_lat: 12.98 + i * 0.001,
+            dest_lon: 77.61 + i * 0.001,
+            distance_m: 500 + i,
+            duration_s: 300 + i,
+            context_score: 50,
+          })
+        );
+      }
+
+      await Promise.all(promises);
+      const rows = await getSavedJourneys();
+      assert.equal(rows.length, 50);
+    });
+
+    it('safely neutralizes SQL injection attempts in string fields', async () => {
+      const maliciousPayload = "'; DROP TABLE saved_journeys; SELECT '1";
+      await saveJourney({
+        id: 'sqli-test',
+        title: maliciousPayload,
+        origin_name: "admin' --",
+        origin_lat: 12.9,
+        origin_lon: 77.6,
+        dest_name: "dest' OR '1'='1",
+        dest_lat: 12.9,
+        dest_lon: 77.6,
+        distance_m: 100,
+        duration_s: 100,
+        context_score: 50,
+      });
+
+      const rows = await getSavedJourneys();
+      assert.equal(rows.length, 1);
+      assert.equal(rows[0].title, maliciousPayload);
+      assert.equal(rows[0].origin_name, "admin' --");
+    });
+
+    it('sanitizes NaN and out-of-range numbers into valid bounded numbers', async () => {
+      await saveJourney({
+        id: 'nan-test',
+        title: 'NaN Route',
+        origin_name: 'Origin',
+        origin_lat: NaN,
+        origin_lon: NaN,
+        dest_name: 'Dest',
+        dest_lat: 195.5, // exceeds 90
+        dest_lon: -250.0, // exceeds -180
+        distance_m: -50, // negative distance
+        duration_s: NaN,
+        context_score: 999, // exceeds 100
+      });
+
+      const rows = await getSavedJourneys();
+      assert.equal(rows.length, 1);
+      assert.equal(rows[0].origin_lat, 0);
+      assert.equal(rows[0].origin_lon, 0);
+      assert.equal(rows[0].dest_lat, 90);
+      assert.equal(rows[0].dest_lon, -180);
+      assert.equal(rows[0].distance_m, 0);
+      assert.equal(rows[0].context_score, 100);
+    });
+  });
 });

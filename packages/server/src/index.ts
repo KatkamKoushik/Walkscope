@@ -8,14 +8,14 @@ async function main() {
   const server = await buildServer({ logger: true });
 
   const gracefulShutdown = async (signal: string) => {
-    console.log(`[WalkWise Gateway] Received ${signal}, closing server gracefully...`);
+    console.log(`[Walkscope Gateway] Received ${signal}, closing server gracefully...`);
     try {
       if (defaultCache.stop) defaultCache.stop();
       await server.close();
-      console.log('[WalkWise Gateway] Server closed cleanly.');
+      console.log('[Walkscope Gateway] Server closed cleanly.');
       process.exit(0);
     } catch (err) {
-      console.error('[WalkWise Gateway] Error during shutdown:', err);
+      console.error('[Walkscope Gateway] Error during shutdown:', err);
       process.exit(1);
     }
   };
@@ -25,9 +25,9 @@ async function main() {
 
   try {
     const address = await server.listen({ port: PORT, host: HOST });
-    console.log(`[WalkWise Gateway] Server listening at ${address}`);
+    console.log(`[Walkscope Gateway] Server listening at ${address}`);
   } catch (err) {
-    console.error('[WalkWise Gateway] Failed to start server:', err);
+    console.error('[Walkscope Gateway] Failed to start server:', err);
     process.exit(1);
   }
 }

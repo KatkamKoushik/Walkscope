@@ -64,12 +64,12 @@ export const WalkingModeModal: React.FC<WalkingModeModalProps> = ({
 
   const handleEmergencyCall = () => {
     Alert.alert(
-      'Emergency Call (112)',
-      'Launch the device dialer for emergency services (112)?\n\nNotice: This app is an information tool and does not provide automated safety response or tracking.',
+      'Emergency Services',
+      'Launch the device dialer for standard emergency services (112 / regional emergency dispatch)?\n\nNotice: Walkscope is an information tool and does not provide automated emergency dispatch or remote tracking.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Open Dialer',
+          text: 'Open Dialer (112)',
           style: 'destructive',
           onPress: () => {
             Linking.openURL('tel:112').catch(() => {

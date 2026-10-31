@@ -1,4 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import crypto from 'node:crypto';
 import { fetchCorridorAmenities } from '@walking-companion/core';
 import { defaultCache } from '../cache/cacheService.js';
 
@@ -52,11 +53,10 @@ export async function registerContextRoutes(fastify: FastifyInstance) {
       const safeBufferDegrees = Math.min(0.01, Math.max(0.0005, Number(bufferDegrees) || 0.0015));
       const safeTimeoutMs = Math.min(20000, Math.max(1000, Number(timeoutMs) || 8000));
 
-      // Generate compact cache key from first, middle, last points + count
-      const startPt = coordinates[0];
-      const midPt = coordinates[Math.floor(coordinates.length / 2)];
-      const endPt = coordinates[coordinates.length - 1];
-      const cacheKey = `amenities:${coordinates.length}:${startPt[0].toFixed(5)},${startPt[1].toFixed(5)}:${midPt[0].toFixed(5)},${midPt[1].toFixed(5)}:${endPt[0].toFixed(5)},${endPt[1].toFixed(5)}`;
+      // Build collision-resistant hash of full coordinate geometry + parameters
+      const geomStr = coordinates.map((c) => `${c[0].toFixed(5)},${c[1].toFixed(5)}`).join(';');
+      const geomHash = crypto.createHash('sha256').update(geomStr).digest('hex').slice(0, 16);
+      const cacheKey = `amenities:geom:${geomHash}:d${safeMaxCorridorDistance}:b${safeBufferDegrees.toFixed(4)}`;
 
       const cached = await defaultCache.get(cacheKey);
       if (cached) {
@@ -98,8 +98,10 @@ export async function registerContextRoutes(fastify: FastifyInstance) {
         error: res.error,
       };
 
-      if (!res.error && features.length > 0) {
-        await defaultCache.set(cacheKey, responsePayload, 3600); // 1 hour TTL
+      if (!res.error) {
+        // Cache populated corridors for 1 hour; cache 0-amenity corridors for 10 minutes to prevent upstream Overpass 429 hammering
+        const ttl = features.length > 0 ? 3600 : 600;
+        await defaultCache.set(cacheKey, responsePayload, ttl);
       }
 
       reply.header('X-Cache-Status', 'MISS');

@@ -2,7 +2,7 @@
  * @module routingAdapter
  * @description Pluggable pedestrian routing adapter interface and implementation.
  * 
- * Supports both WalkWise Geospatial Gateway (with Redis caching and request deduplication)
+ * Supports both Walkscope Geospatial Gateway (with request deduplication and caching)
  * and direct OpenStreetMap OSRM failover.
  */
 

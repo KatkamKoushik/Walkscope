@@ -15,29 +15,26 @@ import {
 } from '@maplibre/maplibre-react-native';
 import { RoutingCoord } from '../services/routingAdapter';
 
-// High-resolution Carto Voyager raster tiles (OpenStreetMap-based, keyless for dev/evaluation)
+// High-resolution OpenStreetMap standard raster tiles (keyless, official OpenStreetMap)
 export const DEFAULT_MAP_STYLE = JSON.stringify({
   version: 8,
   sources: {
-    'carto-voyager': {
+    'osm-standard': {
       type: 'raster',
       tiles: [
-        'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-        'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-        'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-        'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       ],
       tileSize: 256,
-      attribution: '© OpenStreetMap contributors, © CARTO',
+      attribution: '© OpenStreetMap contributors',
     },
   },
   layers: [
     {
-      id: 'carto-voyager-layer',
+      id: 'osm-standard-layer',
       type: 'raster',
-      source: 'carto-voyager',
+      source: 'osm-standard',
       minzoom: 0,
-      maxzoom: 20,
+      maxzoom: 19,
     },
   ],
 });
@@ -48,18 +45,40 @@ export interface MapRouteItem {
   isSelected: boolean;
 }
 
+export interface MapAmenityItem {
+  id: string;
+  name: string;
+  category: 'transit' | 'emergency' | 'services' | 'lighting' | 'other' | string;
+  coordinates: [number, number]; // [lon, lat]
+}
+
+export interface MapPhotoItem {
+  id: string;
+  latitude: number;
+  longitude: number;
+  headingDeg?: number | null;
+}
+
 export interface MapComponentProps {
   origin: RoutingCoord | null;
   destination: RoutingCoord | null;
   routes: MapRouteItem[];
+  amenities?: MapAmenityItem[];
+  streetPhotos?: MapPhotoItem[];
   onSelectRoute?: (id: string) => void;
+  onSelectAmenity?: (amenity: MapAmenityItem) => void;
+  onSelectPhoto?: (photo: MapPhotoItem) => void;
 }
 
 export const MapComponent: React.FC<MapComponentProps> = ({
   origin,
   destination,
   routes,
+  amenities,
+  streetPhotos,
   onSelectRoute,
+  onSelectAmenity,
+  onSelectPhoto,
 }) => {
   const cameraRef = useRef<CameraRef>(null);
 
@@ -164,6 +183,41 @@ export const MapComponent: React.FC<MapComponentProps> = ({
             </GeoJSONSource>
           );
         })}
+
+        {/* Mapped Corridor Amenities */}
+        {amenities?.map((amenity) => {
+          const badgeColor =
+            amenity.category === 'emergency'
+              ? '#10B981' // emerald
+              : amenity.category === 'transit'
+              ? '#F59E0B' // amber
+              : amenity.category === 'lighting'
+              ? '#06B6D4' // cyan
+              : '#38BDF8'; // sky blue
+
+          return (
+            <Marker
+              key={amenity.id}
+              id={amenity.id}
+              lngLat={amenity.coordinates}
+            >
+              <View style={[styles.amenityDot, { backgroundColor: badgeColor }]} />
+            </Marker>
+          );
+        })}
+
+        {/* Street-Level Photography Coordinates */}
+        {streetPhotos?.map((photo) => (
+          <Marker
+            key={photo.id}
+            id={`photo-${photo.id}`}
+            lngLat={[photo.longitude, photo.latitude]}
+          >
+            <View style={styles.photoMarker}>
+              <Text style={styles.photoIcon}>📷</Text>
+            </View>
+          </Marker>
+        ))}
       </Map>
     </View>
   );
@@ -176,6 +230,25 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  amenityDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    elevation: 3,
+  },
+  photoMarker: {
+    backgroundColor: '#3B82F6',
+    borderRadius: 10,
+    padding: 3,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    elevation: 4,
+  },
+  photoIcon: {
+    fontSize: 10,
   },
   marker: {
     width: 28,

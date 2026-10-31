@@ -8,10 +8,10 @@
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.walkwise.companion"
+      "bundleIdentifier": "com.walkscope.companion"
     },
     "android": {
-      "package": "com.walkwise.companion",
+      "package": "com.walkscope.companion",
       "adaptiveIcon": {
         "backgroundColor": "#0F172A",
         "foregroundImage": "./assets/android-icon-foreground.png",

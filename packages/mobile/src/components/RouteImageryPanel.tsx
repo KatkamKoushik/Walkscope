@@ -1,6 +1,6 @@
-import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView, Image, ActivityIndicator } from 'react-native';
-import type { PanoramaxSearchResult } from '../services/imageryAdapter';
+import React, { useState } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, Image, ActivityIndicator, Modal } from 'react-native';
+import type { PanoramaxSearchResult, PanoramaxImage } from '../services/imageryAdapter';
 
 interface RouteImageryPanelProps {
   isLoading: boolean;
@@ -9,6 +9,8 @@ interface RouteImageryPanelProps {
 }
 
 export function RouteImageryPanel({ isLoading, result, onClose }: RouteImageryPanelProps) {
+  const [selectedImage, setSelectedImage] = useState<PanoramaxImage | null>(null);
+
   return (
     <View style={styles.imageryPanel}>
       <View style={styles.imageryHeaderRow}>
@@ -26,7 +28,12 @@ export function RouteImageryPanel({ isLoading, result, onClose }: RouteImageryPa
       ) : result && result.hasImagery && result.images.length > 0 ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imageScroll}>
           {result.images.map((img) => (
-            <View key={img.id} style={styles.imageCard}>
+            <TouchableOpacity
+              key={img.id}
+              style={styles.imageCard}
+              onPress={() => setSelectedImage(img)}
+              accessibilityLabel={`View full photo captured on ${img.captureDate || 'historical'}`}
+            >
               {img.thumbUrl ? (
                 <Image source={{ uri: img.thumbUrl }} style={styles.imageThumb} resizeMode="cover" />
               ) : (
@@ -40,7 +47,7 @@ export function RouteImageryPanel({ isLoading, result, onClose }: RouteImageryPa
                 </Text>
                 <Text style={styles.imagePanoType}>{img.is360Panorama ? '360°' : 'Flat'}</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
         </ScrollView>
       ) : (
@@ -55,8 +62,40 @@ export function RouteImageryPanel({ isLoading, result, onClose }: RouteImageryPa
       )}
 
       <Text style={styles.imageryAttribution}>
-        Photos © Panoramax contributors (CC-BY-SA 4.0)
+        Photos © Panoramax contributors (CC-BY-SA 4.0) • Tap image to inspect
       </Text>
+
+      {/* Full Photo Inspection Modal */}
+      {selectedImage && (
+        <Modal visible animationType="fade" transparent onRequestClose={() => setSelectedImage(null)}>
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  {selectedImage.is360Panorama ? '360° Panorama' : 'Street Photo'} (
+                  {selectedImage.captureDate ? new Date(selectedImage.captureDate).toLocaleDateString() : 'Historical'}
+                  )
+                </Text>
+                <TouchableOpacity onPress={() => setSelectedImage(null)} style={styles.modalCloseBtn}>
+                  <Text style={styles.modalCloseText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <Image
+                source={{ uri: selectedImage.fullUrl || selectedImage.thumbUrl || undefined }}
+                style={styles.fullImage}
+                resizeMode="contain"
+              />
+              <View style={styles.modalFooter}>
+                <Text style={styles.modalSub}>
+                  Position: {selectedImage.latitude.toFixed(5)}, {selectedImage.longitude.toFixed(5)}
+                  {selectedImage.headingDeg != null ? ` • Heading: ${Math.round(selectedImage.headingDeg)}°` : ''}
+                </Text>
+                <Text style={styles.modalSub}>Source: Panoramax Open Imagery (CC-BY-SA 4.0)</Text>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -154,6 +193,56 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontSize: 9,
     marginTop: 4,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalContent: {
+    width: '100%',
+    maxHeight: '90%',
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#1E293B',
+  },
+  modalTitle: {
+    color: '#F8FAFC',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  modalCloseText: {
+    color: '#94A3B8',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  fullImage: {
+    width: '100%',
+    height: 320,
+    backgroundColor: '#020617',
+  },
+  modalFooter: {
+    padding: 12,
+    backgroundColor: '#1E293B',
+  },
+  modalSub: {
+    color: '#94A3B8',
+    fontSize: 11,
+    marginTop: 2,
   },
 });
 

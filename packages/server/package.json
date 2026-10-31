@@ -1,7 +1,7 @@
 {
   "name": "@walking-companion/server",
   "version": "1.0.0",
-  "description": "Geospatial Gateway Backend for WalkWise Walking Companion",
+  "description": "Geospatial Gateway Backend for Walkscope Walking Companion",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

@@ -5,6 +5,9 @@ export * from './providers/common/geo.js';
 export * from './providers/imagery/panoramax/client.js';
 export * from './providers/amenities/overpassClient.js';
 export * from './providers/imagery/mapillaryServerTrim.js';
+export * from './providers/imagery/mapillaryServerTiles.js';
 export * from './services/twilightService.js';
 export * from './services/contextScoringService.js';
+export * from './services/openingHoursService.js';
+export * from './services/routeIntelligenceService.js';
 

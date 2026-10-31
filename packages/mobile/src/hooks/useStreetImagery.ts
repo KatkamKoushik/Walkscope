@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   activeImageryProvider,
   PanoramaxSearchResult,
@@ -17,6 +17,26 @@ export function useStreetImagery(origin: LocationPoint | null): UseStreetImagery
   const [imageryResult, setImageryResult] = useState<PanoramaxSearchResult | null>(null);
   const [isLoadingImagery, setIsLoadingImagery] = useState(false);
   const [showImagery, setShowImagery] = useState(false);
+
+  // Automatically fetch street imagery for origin in background so Route Context Coverage is accurate
+  useEffect(() => {
+    if (!origin) {
+      setImageryResult(null);
+      return;
+    }
+
+    let active = true;
+    activeImageryProvider
+      .searchNearby(origin.latitude, origin.longitude, { radiusM: 100, limit: 3 })
+      .then((res) => {
+        if (active) setImageryResult(res);
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+    };
+  }, [origin?.latitude, origin?.longitude]);
 
   const checkStreetImagery = async () => {
     if (!origin) return;

@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for WalkWise Geospatial Gateway
+# Multi-stage Dockerfile for Walkscope Geospatial Gateway
 FROM node:20-alpine AS builder
 
 WORKDIR /app

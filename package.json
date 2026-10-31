@@ -11,6 +11,7 @@
     "pretest": "npm run build:server",
     "test": "node --test",
     "test:server": "npm run --workspace=@walking-companion/server build && node --test packages/server/src/*.test.mjs",
+    "test:stress": "npm run build:server && node --test packages/server/src/stress.test.mjs packages/core/services/fuzzHardening.test.mjs",
     "typecheck": "npm run typecheck:core && npm run typecheck:mobile && npm run typecheck:server",
     "typecheck:core": "tsc -p packages/core/tsconfig.json",
     "typecheck:mobile": "npm run --workspace=packages/mobile typecheck",

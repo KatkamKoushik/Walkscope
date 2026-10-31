@@ -23,7 +23,10 @@ export function RouteComparisonCards({
             key={route.id}
             style={[styles.routeCard, isSelected && styles.selectedRouteCard]}
             onPress={() => onSelectRoute(route.id)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
             accessibilityLabel={`Select Route ${index + 1}`}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           >
             <View style={styles.cardBadge}>
               <Text style={[styles.cardBadgeText, isSelected && styles.selectedBadgeText]}>
@@ -45,20 +48,22 @@ export function RouteComparisonCards({
 const styles = StyleSheet.create({
   cardScroll: {
     flexDirection: 'row',
-    marginVertical: 6,
+    marginVertical: 8,
   },
   routeCard: {
-    backgroundColor: '#0F172A',
-    padding: 10,
-    borderRadius: 12,
+    backgroundColor: '#1E293B',
+    padding: 12,
+    borderRadius: 14,
     marginRight: 10,
     borderWidth: 1.5,
-    borderColor: '#334155',
-    width: 160,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    minWidth: 165,
+    minHeight: 76,
+    justifyContent: 'center',
   },
   selectedRouteCard: {
     borderColor: '#38BDF8',
-    backgroundColor: '#0C2340',
+    backgroundColor: '#131C2E',
   },
   cardBadge: {
     marginBottom: 4,
@@ -67,6 +72,8 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontSize: 10,
     fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   selectedBadgeText: {
     color: '#38BDF8',
@@ -76,19 +83,20 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
   },
   durationBig: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '800',
-    color: '#F1F5F9',
+    color: '#F8FAFC',
     marginRight: 6,
   },
   distanceSmall: {
     fontSize: 12,
+    fontWeight: '500',
     color: '#94A3B8',
   },
   turnsDetail: {
     fontSize: 11,
     color: '#64748B',
-    marginTop: 2,
+    marginTop: 3,
   },
 });
 

@@ -69,6 +69,9 @@ export async function registerGeocodeRoutes(fastify: FastifyInstance) {
       let query = (request.query.q || '').trim();
       const limit = Math.min(10, Math.max(1, parseInt(request.query.limit || '5', 10)));
 
+      // Strip control chars, null bytes, and non-printable characters (anti-SSRF / anti-injection)
+      query = query.replace(/[\x00-\x1F\x7F]/g, '');
+
       if (!query || query.length < 2) {
         return [];
       }
@@ -157,7 +160,7 @@ export async function registerGeocodeRoutes(fastify: FastifyInstance) {
         const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=${limit}&addressdetails=1`;
         const res = await fetch(url, {
           headers: {
-            'User-Agent': 'WalkingContextCompanionGateway/1.0',
+            'User-Agent': 'WalkscopeGeospatialGateway/1.0 (https://github.com/KatkamKoushik/Walkscope; security@walkscope.app)',
             'Accept-Language': 'en',
           },
           signal: nominatimController.signal,

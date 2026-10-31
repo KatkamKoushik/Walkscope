@@ -1,0 +1,9 @@
+{
+  "name": "@walking-companion/i18n",
+  "version": "1.0.0",
+  "description": "Lightweight localization and message formatting for Walkscope",
+  "type": "module",
+  "main": "index.js",
+  "private": true
+}
+

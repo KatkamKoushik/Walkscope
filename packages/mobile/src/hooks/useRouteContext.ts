@@ -8,6 +8,11 @@ import {
   ContextScoreBreakdown,
 } from '../../../core/services/contextScoringService';
 import {
+  computeRouteIntelligence,
+  RouteIntelligenceReport,
+  SPEED_PRESETS,
+} from '../../../core/services/routeIntelligenceService';
+import {
   getAmenitiesAlongRoute,
   RouteAmenitySummary,
 } from '../services/amenityAdapter';
@@ -18,6 +23,7 @@ export interface UseRouteContextReturn {
   daylightEstimate: SolarEstimate | null;
   amenitySummary: RouteAmenitySummary | null;
   contextScore: ContextScoreBreakdown | null;
+  routeIntelligence: RouteIntelligenceReport | null;
 }
 
 export function useRouteContext(
@@ -27,6 +33,7 @@ export function useRouteContext(
 ): UseRouteContextReturn {
   const [amenitySummary, setAmenitySummary] = useState<RouteAmenitySummary | null>(null);
   const [contextScore, setContextScore] = useState<ContextScoreBreakdown | null>(null);
+  const [routeIntelligence, setRouteIntelligence] = useState<RouteIntelligenceReport | null>(null);
 
   const daylightEstimate: SolarEstimate | null = origin
     ? estimateDaylightState(origin.latitude, origin.longitude)
@@ -39,11 +46,12 @@ export function useRouteContext(
         if (!active) return;
         setAmenitySummary(amenities);
 
+        // 1. Context Coverage Score
         const score = calculateContextCoverage({
           distanceMeters: activeRoute.distanceMeters,
           amenities: amenities.features,
           solar: {
-            state: daylightEstimate?.solarState || 'DAYLIGHT',
+            state: daylightEstimate?.solarState || 'UNKNOWN',
             elevationDeg: daylightEstimate?.solarElevationDeg || 0,
           },
           imagery: {
@@ -52,10 +60,25 @@ export function useRouteContext(
           },
         });
         setContextScore(score);
+
+        // 2. High-Value Route Context Intelligence (NightWise Model)
+        const intel = computeRouteIntelligence({
+          polyline: activeRoute.geometry.coordinates,
+          distanceMeters: activeRoute.distanceMeters,
+          durationSeconds: activeRoute.durationSeconds,
+          steps: activeRoute.steps || [],
+          amenities: amenities.features || [],
+          options: {
+            walkingSpeedMs: SPEED_PRESETS.standard,
+            departureTime: new Date().toISOString(),
+          },
+        });
+        setRouteIntelligence(intel);
       });
     } else {
       setAmenitySummary(null);
       setContextScore(null);
+      setRouteIntelligence(null);
     }
 
     return () => {
@@ -63,6 +86,8 @@ export function useRouteContext(
     };
   }, [
     activeRoute?.id,
+    activeRoute?.distanceMeters,
+    activeRoute?.durationSeconds,
     daylightEstimate?.solarState,
     daylightEstimate?.solarElevationDeg,
     imageryResult?.hasImagery,
@@ -73,5 +98,6 @@ export function useRouteContext(
     daylightEstimate,
     amenitySummary,
     contextScore,
+    routeIntelligence,
   };
 }

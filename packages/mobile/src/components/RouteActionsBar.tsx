@@ -27,7 +27,10 @@ export function RouteActionsBar({
       <TouchableOpacity
         style={[styles.actionBtn, styles.walkModeBtn]}
         onPress={onStartWalking}
+        activeOpacity={0.75}
+        accessibilityRole="button"
         accessibilityLabel="Start Walking Mode"
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
         <Text style={styles.walkModeBtnText}>🚶 Walk</Text>
       </TouchableOpacity>
@@ -35,7 +38,10 @@ export function RouteActionsBar({
       <TouchableOpacity
         style={styles.actionBtn}
         onPress={onSaveRoute}
+        activeOpacity={0.75}
+        accessibilityRole="button"
         accessibilityLabel="Save Route to Local SQLite"
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
         <Text style={styles.actionBtnText}>⭐ Save</Text>
       </TouchableOpacity>
@@ -43,7 +49,10 @@ export function RouteActionsBar({
       <TouchableOpacity
         style={styles.actionBtn}
         onPress={onTogglePhotos}
+        activeOpacity={0.75}
+        accessibilityRole="button"
         accessibilityLabel="Check Panoramax Street Photos"
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
         <Text style={styles.actionBtnText}>📷 Photos</Text>
       </TouchableOpacity>
@@ -51,7 +60,10 @@ export function RouteActionsBar({
       <TouchableOpacity
         style={styles.actionBtn}
         onPress={onOpenPrivacy}
+        activeOpacity={0.75}
+        accessibilityRole="button"
         accessibilityLabel="Open Privacy and Data Flow Settings"
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
         <Text style={styles.actionBtnText}>⚙️ Privacy</Text>
       </TouchableOpacity>
@@ -59,7 +71,10 @@ export function RouteActionsBar({
       <TouchableOpacity
         style={[styles.actionBtn, styles.stepsBtn]}
         onPress={onToggleManeuvers}
+        activeOpacity={0.75}
+        accessibilityRole="button"
         accessibilityLabel="Toggle Turn by Turn Steps"
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
         <Text style={styles.actionBtnText}>{showManeuvers ? 'Hide' : 'Steps'}</Text>
       </TouchableOpacity>
@@ -71,16 +86,19 @@ const styles = StyleSheet.create({
   actionButtonsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 6,
+    marginVertical: 8,
+    gap: 8,
   },
   actionBtn: {
-    backgroundColor: '#0F172A',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 6,
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#334155',
-    marginRight: 6,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   walkModeBtn: {
     backgroundColor: '#0284C7',
@@ -88,7 +106,7 @@ const styles = StyleSheet.create({
   },
   walkModeBtnText: {
     color: '#FFFFFF',
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
   },
   stepsBtn: {
@@ -96,7 +114,7 @@ const styles = StyleSheet.create({
   },
   actionBtnText: {
     color: '#38BDF8',
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
   },
 });

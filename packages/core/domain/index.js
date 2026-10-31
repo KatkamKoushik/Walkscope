@@ -1,3 +1,3 @@
-// Runtime JS placeholder for domain type definitions
-export {};
+export * from './scoring.js';
+
 

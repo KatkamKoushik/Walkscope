@@ -185,6 +185,43 @@ describe('Geospatial Gateway Backend (packages/server)', () => {
       assert.ok('categoryBreakdown' in data1);
       assert.match(data1.disclaimer, /OpenStreetMap/);
     });
+
+    it('produces distinct cache keys and prevents cache collisions for routes sharing start, mid, end but diverging intermediately', async () => {
+      await defaultCache.clear();
+
+      const routeA = [
+        [-0.1281, 51.5080],
+        [-0.1270, 51.5090], // diverging point
+        [-0.1260, 51.5100], // mid
+        [-0.1250, 51.5110],
+        [-0.1240, 51.5120],
+      ];
+
+      const routeB = [
+        [-0.1281, 51.5080],
+        [-0.1299, 51.5075], // different diverging point
+        [-0.1260, 51.5100], // mid
+        [-0.1250, 51.5110],
+        [-0.1240, 51.5120],
+      ];
+
+      const resA = await app.inject({
+        method: 'POST',
+        url: '/api/v1/context/corridor',
+        payload: { coordinates: routeA, maxCorridorDistanceMeters: 100 },
+      });
+      assert.equal(resA.statusCode, 200);
+      assert.equal(resA.headers['x-cache-status'], 'MISS');
+
+      // Route B must also result in a cache MISS (not collide with Route A's cached entry)
+      const resB = await app.inject({
+        method: 'POST',
+        url: '/api/v1/context/corridor',
+        payload: { coordinates: routeB, maxCorridorDistanceMeters: 100 },
+      });
+      assert.equal(resB.statusCode, 200);
+      assert.equal(resB.headers['x-cache-status'], 'MISS');
+    });
   });
 
   describe('GET /api/v1/imagery/tiles/:z/:x/:y', () => {
@@ -215,6 +252,7 @@ describe('Geospatial Gateway Backend (packages/server)', () => {
       assert.equal(res1.statusCode, 200);
       assert.equal(res1.headers['content-type'], 'application/x-protobuf');
       assert.equal(res1.headers['x-cache-status'], 'MISS');
+      assert.equal(res1.headers['x-tile-status'], 'unauthenticated-fallback');
 
       // Second request -> HIT
       const res2 = await app.inject({

@@ -2,52 +2,197 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'feat/**']
   pull_request:
-    branches: [main]
+    branches: [main, 'feat/**']
+  merge_group:
+  workflow_dispatch:
 
-# Cancel superseded runs on the same branch/PR
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Restrict permissions to read-only for least-privilege security
 permissions:
   contents: read
 
 jobs:
-  tier-a-quality-gate:
-    name: Tier A — Fast Quality Gate
+  hygiene:
+    name: Repository Hygiene & Integrity
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
+    timeout-minutes: 5
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
-      - name: Set up Node.js 20
+      - name: Check for unmerged conflict markers
+        run: |
+          if grep -rnE '^<{7} |^={7}$|^>{7} ' packages/ .github/; then
+            echo "Error: Unmerged git conflict markers detected!"
+            exit 1
+          fi
+          echo "No conflict markers found."
+
+      - name: Verify no forbidden credentials or private keys
+        run: |
+          if find . -name "*.pem" -o -name "*.key" -o -name ".env.local" | grep .; then
+            echo "Error: Forbidden credential/env files found!"
+            exit 1
+          fi
+          echo "No credential files committed."
+
+  audit:
+    name: Dependency Audit & Supply Chain
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
+
+      - name: Audit High/Critical Vulnerabilities
+        run: npm audit --audit-level=high
+
+      - name: Verify Lockfile Consistency (Frozen Lockfile Check)
+        run: npm ci --dry-run
+
+  lint:
+    name: Code Quality & Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
           cache: 'npm'
 
-      - name: Deterministic Clean Install
+      - name: Clean install
         run: npm ci
 
-      - name: Code Quality & Lint Check
+      - name: Run ESLint
         run: npm run lint
+
+  typecheck:
+    name: TypeScript Static Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Clean install
+        run: npm ci
+
+      - name: Run Monorepo Typecheck
+        run: npm run typecheck
+
+  unit-tests:
+    name: Unit & Stress Test Suite (210 Tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TZ: UTC
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Clean install
+        run: npm ci
+
+      - name: Run Monorepo Unit & Stress Tests
+        run: npm test
+
+  mobile-health:
+    name: Expo Doctor Health Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Clean install
+        run: npm ci
+
+      - name: Run Expo Doctor (packages/mobile)
+        working-directory: packages/mobile
+        run: npx expo-doctor
+
+  backend-build:
+    name: Gateway Production Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Clean install
+        run: npm ci
+
+      - name: Build Fastify Server
+        run: npm run build:server
+
+      - name: Verify Dist Artifact Integrity
+        run: |
+          test -s packages/server/dist/server.js || (echo "Missing server.js artifact" && exit 1)
+          test -s packages/server/dist/server.d.ts || (echo "Missing server.d.ts artifact" && exit 1)
+          echo "Production dist artifacts verified."
+
+  secret-scan:
+    name: TruffleHog Secret Scanning
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Repository Secret Scanning
         uses: trufflesecurity/trufflehog@v3.88.5
         with:
           extra_args: --only-verified
-
-      - name: TypeScript Static Analysis (Core, Mobile & Server)
-        run: npm run typecheck
-
-      - name: Expo Doctor Health Check
-        working-directory: packages/mobile
-        run: npx expo-doctor
-
-      - name: Offline Core Unit Test Suite
-        run: npm test

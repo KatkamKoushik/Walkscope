@@ -1,5 +1,11 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { findStreetImageryNear, stripTileLayers } from '@walking-companion/core';
+import {
+  findStreetImageryNear,
+  stripTileLayers,
+  fetchTile,
+  mapillaryToken,
+  TileUpstreamError,
+} from '@walking-companion/core';
 import { defaultCache } from '../cache/cacheService.js';
 
 interface NearbyImageryQuery {
@@ -90,11 +96,36 @@ export async function registerImageryRoutes(fastify: FastifyInstance) {
         return cachedTile;
       }
 
-      // Drop non-essential layers to protect bandwidth
+      // If Mapillary client token is configured, fetch and trim live upstream tile
+      if (mapillaryToken()) {
+        try {
+          const { bytes, source } = await fetchTile(
+            { z: zoom, x: tileX, y: tileY, key: `${zoom}/${tileX}/${tileY}` }
+          );
+          await defaultCache.set(cacheKey, bytes, 86400); // 24h TTL
+          reply.header('X-Cache-Status', source === 'memory' ? 'HIT' : 'MISS');
+          reply.header('Content-Type', 'application/x-protobuf');
+          return bytes;
+        } catch (err: any) {
+          if (err instanceof TileUpstreamError) {
+            if (err.retryAfter) reply.header('Retry-After', err.retryAfter);
+            return reply.status(err.status || 502).send({
+              error: 'Upstream Mapillary tile retrieval error',
+              status: err.status,
+            });
+          }
+          fastify.log.error(err, 'Vector tile proxy unexpected upstream failure');
+        }
+      }
+
+      // When token is unconfigured or in offline development, return trimmed fallback tile
+      // with honest diagnostic headers disclosing unauthenticated mode
       const emptyTile = Buffer.from([0x1a, 0x00]); // Valid empty MVT protobuf
       const trimmed = stripTileLayers(emptyTile, ['unwanted_layer']);
 
       await defaultCache.set(cacheKey, trimmed, 86400); // 24 hours TTL
+      reply.header('X-Tile-Status', 'unauthenticated-fallback');
+      reply.header('X-Tile-Notice', 'Set MAPILLARY_CLIENT_TOKEN to proxy live upstream Mapillary vector tiles.');
       reply.header('X-Cache-Status', 'MISS');
       reply.header('Content-Type', 'application/x-protobuf');
       return trimmed;

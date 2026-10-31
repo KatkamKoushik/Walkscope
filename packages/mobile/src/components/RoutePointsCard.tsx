@@ -100,25 +100,29 @@ export function RoutePointsCard({
           <Text style={styles.presetChipText}>🇮🇳 Bengaluru (MG Rd → Cubbon Park)</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.presetChip, styles.testChip]}
-          onPress={() =>
-            onSelectPreset(
-              { title: 'Null Island', subtitle: 'Ocean', latitude: 0.0, longitude: 0.0 },
-              { title: 'London', subtitle: 'UK', latitude: 51.508, longitude: -0.1281 }
-            )
-          }
-        >
-          <Text style={styles.presetChipText}>🌊 Test Zero Route</Text>
-        </TouchableOpacity>
+        {__DEV__ && (
+          <>
+            <TouchableOpacity
+              style={[styles.presetChip, styles.testChip]}
+              onPress={() =>
+                onSelectPreset(
+                  { title: 'Null Island', subtitle: 'Ocean', latitude: 0.0, longitude: 0.0 },
+                  { title: 'London', subtitle: 'UK', latitude: 51.508, longitude: -0.1281 }
+                )
+              }
+            >
+              <Text style={styles.presetChipText}>🌊 Test Zero Route</Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.presetChip, styles.testChip]} onPress={onTestTimeout}>
-          <Text style={styles.presetChipText}>⏱ Test Timeout</Text>
-        </TouchableOpacity>
+            <TouchableOpacity style={[styles.presetChip, styles.testChip]} onPress={onTestTimeout}>
+              <Text style={styles.presetChipText}>⏱ Test Timeout</Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.presetChip, styles.testChip]} onPress={onTestRateLimit}>
-          <Text style={styles.presetChipText}>🛑 Test Rate Limit</Text>
-        </TouchableOpacity>
+            <TouchableOpacity style={[styles.presetChip, styles.testChip]} onPress={onTestRateLimit}>
+              <Text style={styles.presetChipText}>🛑 Test Rate Limit</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </ScrollView>
 
       {/* Autocomplete Suggestions */}

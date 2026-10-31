@@ -25,20 +25,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const handleHardWipe = () => {
     Alert.alert(
-      'Hard Wipe All Data',
-      'Are you sure you want to permanently delete all saved journeys and recent search history? This operation executes an immediate SQLite deletion and VACUUM.',
+      'Clear Local Database',
+      'Are you sure you want to delete all saved journeys and recent search history? This operation removes all locally stored records and resets your local SQLite database.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Wipe Everything',
+          text: 'Clear Data',
           style: 'destructive',
           onPress: async () => {
             try {
               await hardWipeAllData();
-              Alert.alert('Data Wiped', 'All local journey records and search history have been deleted from on-device storage.');
+              Alert.alert('Database Cleared', 'All local journey records and search history have been deleted from on-device storage.');
               if (onDataWiped) onDataWiped();
             } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to wipe local storage.');
+              Alert.alert('Error', err.message || 'Failed to clear local storage.');
             }
           },
         },
@@ -81,8 +81,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
             <View style={styles.inventoryItem}>
               <Text style={styles.itemTitle}>2. Destination Search & Geocoding</Text>
-              <Text style={styles.itemRecipient}>Recipient: nominatim.openstreetmap.org</Text>
-              <Text style={styles.itemData}>Data sent: Text search query and city bounds.</Text>
+              <Text style={styles.itemRecipient}>Recipient: photon.komoot.io (Photon) / Walkscope Gateway</Text>
+              <Text style={styles.itemData}>Data sent: Text search query with geographic focus; fair-use typeahead API.</Text>
             </View>
 
             <View style={styles.inventoryItem}>
@@ -102,7 +102,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>📜 Attribution & Licenses</Text>
             <Text style={styles.bodyText}>• OpenStreetMap data © OpenStreetMap contributors (ODbL)</Text>
-            <Text style={styles.bodyText}>• Basemap cartography © CARTO Voyager</Text>
+            <Text style={styles.bodyText}>• Basemap cartography © OpenStreetMap contributors</Text>
             <Text style={styles.bodyText}>• Street photos © Panoramax contributors (CC-BY-SA 4.0)</Text>
             <Text style={styles.bodyText}>• Solar position algorithms based on NOAA GML equations</Text>
             <Text style={styles.bodyText}>• Map rendering via MapLibre GL Native</Text>
@@ -112,7 +112,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>🗑️ Data Management</Text>
             <TouchableOpacity style={styles.wipeButton} onPress={handleHardWipe}>
-              <Text style={styles.wipeButtonText}>Delete All Journey History (Hard Wipe)</Text>
+              <Text style={styles.wipeButtonText}>Clear All Local Journey History</Text>
             </TouchableOpacity>
             <Text style={styles.wipeSubtext}>
               Immediately deletes all saved journeys, favorite routes, and search cache from on-device SQLite.

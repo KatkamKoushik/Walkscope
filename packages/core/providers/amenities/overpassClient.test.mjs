@@ -135,6 +135,25 @@ describe('overpassClient', () => {
       assert.deepEqual(norm.coordinates, [-0.1275, 51.5085]);
     });
 
+    it('normalizes OSM way polygons using geometric center', () => {
+      const wayElem = {
+        type: 'way',
+        id: 789101,
+        center: { lat: 51.5090, lon: -0.1280 },
+        tags: {
+          amenity: 'hospital',
+          name: 'Central General Hospital',
+        },
+      };
+
+      const norm = normalizeOsmElement(wayElem);
+      assert.ok(norm);
+      assert.equal(norm.id, 'osm_way_789101');
+      assert.equal(norm.name, 'Central General Hospital');
+      assert.equal(norm.category, 'emergency');
+      assert.deepEqual(norm.coordinates, [-0.1280, 51.5090]);
+    });
+
     it('returns null for invalid elements', () => {
       assert.equal(normalizeOsmElement(null), null);
       assert.equal(normalizeOsmElement({ type: 'node' }), null);
