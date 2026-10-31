@@ -19,7 +19,7 @@
     "fastify": "^5.12.7"
   },
   "devDependencies": {
-    "@types/node": "^20.11.24",
+    "@types/node": "^26.6.6",
     "typescript": "^5.3.3"
   }
 }
