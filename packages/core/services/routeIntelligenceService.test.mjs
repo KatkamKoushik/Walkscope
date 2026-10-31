@@ -78,35 +78,128 @@ test('routeIntelligenceService - venue opening hours & gap evaluation', async (t
 
 test('routeIntelligenceService - major-road share calculation', async (t) => {
   const steps = [
-    { distanceMeters: 300, roadName: 'MG Road' },
-    { distanceMeters: 100, roadName: 'Church Street' },
-    { distanceMeters: 100, roadName: 'Pedestrian Footway' },
+    { distanceMeters: 300, highway: 'primary', roadName: 'MG Road' },
+    { distanceMeters: 100, highway: 'residential', roadName: 'Church Street' },
+    { distanceMeters: 100, highway: 'footway', roadName: 'Pedestrian Walkway' },
   ];
   const totalMeters = 500;
 
-  await t.test('weights road mix by segment distance', () => {
+  await t.test('weights road mix by segment distance and OSM highway tags', () => {
     const res = calculateMajorRoadShare(steps, totalMeters);
     assert.equal(res.majorRoadPercent, 60);    // 300m of 500m
     assert.equal(res.localRoadPercent, 20);    // 100m of 500m
     assert.equal(res.footwayPercent, 20);      // 100m of 500m
-    assert.ok(res.disclaimer.includes('descriptive'));
+    assert.ok(res.disclaimer.includes('OpenStreetMap'));
+  });
+
+  await t.test('reports unclassified steps under other without string guessing', () => {
+    const unclassifiedSteps = [
+      { distanceMeters: 200, roadName: 'Unknown Lane' }, // No highway tag, no major ref
+    ];
+    const res = calculateMajorRoadShare(unclassifiedSteps, 200);
+    assert.equal(res.otherPercent, 100);
+    assert.equal(res.majorRoadPercent, 0);
+    assert.equal(res.isAvailable, false);
+    assert.equal(res.status, 'UNAVAILABLE');
+    assert.equal(res.majorDistanceMeters + res.localDistanceMeters + res.footwayDistanceMeters + res.otherDistanceMeters, 200);
+  });
+
+  await t.test('proves segment lengths sum consistently to route distance', () => {
+    const steps = [
+      { distanceMeters: 142.5, highway: 'primary' },
+      { distanceMeters: 250.2, highway: 'residential' },
+      { distanceMeters: 107.3, highway: 'footway' },
+    ];
+    const res = calculateMajorRoadShare(steps, 500);
+    assert.equal(res.isAvailable, true);
+    assert.equal(res.status, 'AVAILABLE');
+    assert.equal(res.majorDistanceMeters + res.localDistanceMeters + res.footwayDistanceMeters + res.otherDistanceMeters, 500);
   });
 });
 
 test('routeIntelligenceService - verified support points evaluation', async (t) => {
-  // Polyline passing MG Road Metro in Bengaluru
   const polyline = [
     [77.6066, 12.9756],
     [77.6070, 12.9719],
   ];
 
-  await t.test('identifies active benchmark support point near MG Road', () => {
+  await t.test('honestly returns 0 verified points by default when no audited registry is configured', () => {
     const res = evaluateVerifiedSupportPoints(polyline);
-    assert.ok(res.supportPoints.length >= 1);
-    const mgPoint = res.supportPoints.find((p) => p.id === 'bengaluru_erss_helpdesk_mgroad');
-    assert.ok(mgPoint, 'Expected to find Bengaluru ERSS Help Desk');
-    assert.equal(mgPoint.publicAccessConfirmed, true);
-    assert.equal(mgPoint.isExpired, false);
+    assert.equal(res.verifiedPointsCount, 0);
+    assert.equal(res.supportPoints.length, 0);
+  });
+
+  await t.test('requires location-specific evidence and unexpired access to count as verified', () => {
+    const sampleRegistry = [
+      {
+        id: 'audited_helpdesk_mgroad',
+        name: 'Audited Public Help Desk (MG Road Metro)',
+        type: 'help_centre',
+        coordinates: [77.6068, 12.9754],
+        publicAccessConfirmed: true,
+        operatingHours: '24/7',
+        verificationSource: 'Location Field Audit Report #2026-A12',
+        evidenceUrl: 'https://example.gov/audits/2026-A12',
+        verifiedAt: '2026-10-15T00:00:00Z',
+        expiresAt: '2026-11-15T00:00:00Z',
+      },
+      {
+        id: 'unconfirmed_kiosk',
+        name: 'Unverified Information Kiosk',
+        type: 'kiosk',
+        coordinates: [77.6068, 12.9754],
+        publicAccessConfirmed: false,
+        operatingHours: 'unknown',
+        verificationSource: '',
+        evidenceUrl: '',
+        verifiedAt: '2026-10-15T00:00:00Z',
+        expiresAt: '2026-11-15T00:00:00Z',
+      },
+    ];
+
+    const res = evaluateVerifiedSupportPoints(polyline, sampleRegistry);
+    assert.equal(res.verifiedPointsCount, 1);
+    assert.equal(res.supportPoints.length, 2);
+    const audited = res.supportPoints.find((p) => p.id === 'audited_helpdesk_mgroad');
+    assert.equal(audited.verificationStatus, 'verified_active');
+    const unconfirmed = res.supportPoints.find((p) => p.id === 'unconfirmed_kiosk');
+    assert.equal(unconfirmed.verificationStatus, 'unverified_candidate');
+  });
+
+  await t.test('rejects generic organisation homepage as location-specific evidence', () => {
+    const genericRegistry = [
+      {
+        id: 'generic_homepage_point',
+        name: 'Helpdesk With Generic URL',
+        type: 'help_centre',
+        coordinates: [77.6068, 12.9754],
+        publicAccessConfirmed: true,
+        evidenceUrl: 'https://112.gov.in', // Generic top-level homepage without subpath
+        verifiedAt: '2026-10-15T00:00:00Z',
+        expiresAt: '2026-12-31T00:00:00Z',
+      },
+    ];
+
+    const res = evaluateVerifiedSupportPoints(polyline, genericRegistry);
+    assert.equal(res.verifiedPointsCount, 0);
+    assert.equal(res.supportPoints[0].verificationStatus, 'unverified_candidate');
+  });
+
+  await t.test('drops invalid coordinates from support registry', () => {
+    const malformedRegistry = [
+      {
+        id: 'bad_coords',
+        name: 'Bad Coords Point',
+        type: 'help_centre',
+        coordinates: [NaN, 12.9754],
+        publicAccessConfirmed: true,
+        evidenceUrl: 'https://example.gov/doc/1',
+        expiresAt: '2026-12-31T00:00:00Z',
+      },
+    ];
+
+    const res = evaluateVerifiedSupportPoints(polyline, malformedRegistry);
+    assert.equal(res.supportPoints.length, 0);
   });
 });
 
@@ -120,7 +213,7 @@ test('routeIntelligenceService - full reproducibility report', async () => {
     polyline,
     distanceMeters: 560,
     durationSeconds: 480,
-    steps: [{ distanceMeters: 560, roadName: 'MG Road' }],
+    steps: [{ distanceMeters: 560, highway: 'primary', roadName: 'MG Road' }],
     amenities: [],
   });
 

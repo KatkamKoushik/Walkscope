@@ -10,7 +10,11 @@
  */
 
 import { haversineKm } from '../providers/common/geo.js';
-import { evaluateOpeningHours, OPENING_HOURS_PARSER_VERSION } from './openingHoursService.js';
+import {
+  evaluateOpeningHours,
+  resolveTimezoneForCoordinates,
+  OPENING_HOURS_PARSER_VERSION,
+} from './openingHoursService.js';
 
 export const SCORER_VERSION = '1.1.0-route-intelligence';
 export const GRAPH_VERSION = 'osm-planet-2026-10';
@@ -128,8 +132,9 @@ export function evaluateRouteVenues(
     const alongMeters = computeAlongRouteDistanceMeters(v.coordinates, polyline);
     const walkSeconds = Math.round(alongMeters / walkingSpeedMs);
     const arrivalTime = new Date(validDeparture.getTime() + walkSeconds * 1000);
+    const venueTz = resolveTimezoneForCoordinates(v.coordinates?.[0], v.coordinates?.[1]);
 
-    const openingResult = evaluateOpeningHours(v.tags?.opening_hours, arrivalTime);
+    const openingResult = evaluateOpeningHours(v.tags?.opening_hours, arrivalTime, venueTz);
 
     if (openingResult.status === 'OPEN') openCount++;
     else if (openingResult.status === 'CLOSED') closedCount++;
@@ -142,6 +147,8 @@ export function evaluateRouteVenues(
       coordinates: v.coordinates,
       alongRouteDistanceMeters: alongMeters,
       estimatedPassingTime: arrivalTime.toISOString(),
+      timezone: venueTz,
+      localTimeFormatted: openingResult.localTimeFormatted,
       openingStatus: openingResult.status,
       openingReason: openingResult.reason || openingResult.ruleMatched || 'Open',
       rawOpeningHours: v.tags?.opening_hours || null,
@@ -186,7 +193,68 @@ export function evaluateRouteVenues(
 }
 
 /**
+ * Official OpenStreetMap Highway Classifications.
+ * Used for deterministic, explainable road mix measurement without string name guessing.
+ */
+export const OSM_HIGHWAY_TAGS = {
+  major: new Set([
+    'motorway', 'motorway_link',
+    'trunk', 'trunk_link',
+    'primary', 'primary_link',
+    'secondary', 'secondary_link',
+    'tertiary', 'tertiary_link',
+  ]),
+  local: new Set([
+    'residential', 'living_street', 'service', 'unclassified',
+  ]),
+  footway: new Set([
+    'footway', 'pedestrian', 'path', 'cycleway', 'steps', 'bridleway', 'track', 'sidewalk', 'crossing',
+  ]),
+};
+
+/**
+ * Classifies an individual route step into an OSM highway category:
+ * 'major' | 'local' | 'footway' | 'other'
+ * 
+ * Does NOT guess from street name substrings (e.g., 'road', 'avenue').
+ * 
+ * @param {Object} step
+ * @returns {'major' | 'local' | 'footway' | 'other'}
+ */
+export function classifyStepHighway(step) {
+  if (!step) return 'other';
+
+  // 1. Direct OSM highway tag (authoritative)
+  const tag = (step.highway || step.osmHighway || step.tags?.highway || '').toLowerCase().trim();
+  if (tag) {
+    if (OSM_HIGHWAY_TAGS.major.has(tag)) return 'major';
+    if (OSM_HIGHWAY_TAGS.footway.has(tag)) return 'footway';
+    if (OSM_HIGHWAY_TAGS.local.has(tag)) return 'local';
+    return 'other';
+  }
+
+  // 2. High-confidence infrastructure indicators (OSM route refs e.g., Motorways, National/State Highways)
+  const ref = (step.ref || '').toUpperCase().trim();
+  if (ref) {
+    if (/^(M\d+|A\d+|NH\s*\d+|SH\s*\d+|I-\d+|US\s*\d+|B\d+|E\d+)/.test(ref)) {
+      return 'major';
+    }
+  }
+
+  // 3. Explicit pedestrian mode / maneuver type from OSRM foot engine
+  const maneuverType = (step.maneuver?.type || step.maneuverType || step.type || '').toLowerCase();
+  const mode = (step.mode || '').toLowerCase();
+  if (mode === 'footway' || mode === 'pedestrian' || mode === 'path' || maneuverType === 'footway') {
+    return 'footway';
+  }
+
+  // 4. Default to 'other' (honest representation of unclassified or omitted tag)
+  return 'other';
+}
+
+/**
  * Classifies road types and computes major-road share from route steps.
+ * Uses official OpenStreetMap highway classifications.
  * 
  * @param {Array<any>} steps - Maneuver steps from route provider
  * @param {number} totalDistanceMeters - Total route distance
@@ -199,66 +267,48 @@ export function calculateMajorRoadShare(steps, totalDistanceMeters) {
       localRoadPercent: 0,
       footwayPercent: 0,
       otherPercent: 100,
-      disclaimer: 'Road classification is descriptive of infrastructure mix, not a safety ranking.',
+      majorDistanceMeters: 0,
+      localDistanceMeters: 0,
+      footwayDistanceMeters: 0,
+      otherDistanceMeters: 0,
+      disclaimer: 'Road classification uses OpenStreetMap highway tags. Unclassified steps are reported under Other / Unspecified.',
     };
   }
 
   let majorMeters = 0;
   let localMeters = 0;
   let footwayMeters = 0;
-  let _otherMeters = 0;
+  let otherMeters = 0;
 
   for (const step of steps) {
-    const dist = step.distanceMeters || 0;
-    const name = (step.roadName || step.name || '').toLowerCase();
-    const type = (step.type || step.maneuverType || '').toLowerCase();
+    const dist = typeof step.distanceMeters === 'number' && Number.isFinite(step.distanceMeters) && step.distanceMeters > 0
+      ? step.distanceMeters
+      : 0;
 
-    // Check classification patterns in road name or maneuver info
-    const isMajor = 
-      name.includes('road') || 
-      name.includes('boulevard') || 
-      name.includes('arterial') || 
-      name.includes('avenue') || 
-      name.includes('highway') ||
-      name.includes('mg road') ||
-      name.includes('brigade road') ||
-      name.includes('piccadilly') ||
-      name.includes('oxford street');
-
-    const isFootway = 
-      name.includes('footway') || 
-      name.includes('pedestrian') || 
-      name.includes('path') || 
-      name.includes('walkway') || 
-      name.includes('steps') ||
-      name.includes('sidewalk') ||
-      type.includes('footway');
-
-    const isLocal = 
-      name.includes('lane') || 
-      name.includes('street') || 
-      name.includes('close') || 
-      name.includes('drive') || 
-      name.includes('court') || 
-      name.includes('residential');
-
-    if (isFootway) {
-      footwayMeters += dist;
-    } else if (isMajor) {
+    const classification = classifyStepHighway(step);
+    if (classification === 'major') {
       majorMeters += dist;
-    } else if (isLocal) {
+    } else if (classification === 'footway') {
+      footwayMeters += dist;
+    } else if (classification === 'local') {
       localMeters += dist;
     } else {
-      _otherMeters += dist;
+      otherMeters += dist;
     }
   }
 
-  const majorRoadPercent = Math.min(100, Math.round((majorMeters / totalDistanceMeters) * 100));
-  const footwayPercent = Math.min(100, Math.round((footwayMeters / totalDistanceMeters) * 100));
-  const localRoadPercent = Math.min(100, Math.round((localMeters / totalDistanceMeters) * 100));
+  const computedTotal = majorMeters + localMeters + footwayMeters + otherMeters;
+  const effectiveTotal = computedTotal > 0 ? computedTotal : totalDistanceMeters;
+  const hasClassificationData = (majorMeters + localMeters + footwayMeters) > 0;
+
+  const majorRoadPercent = Math.min(100, Math.round((majorMeters / effectiveTotal) * 100));
+  const footwayPercent = Math.min(100, Math.round((footwayMeters / effectiveTotal) * 100));
+  const localRoadPercent = Math.min(100, Math.round((localMeters / effectiveTotal) * 100));
   const otherPercent = Math.max(0, 100 - (majorRoadPercent + footwayPercent + localRoadPercent));
 
   return {
+    isAvailable: hasClassificationData,
+    status: hasClassificationData ? 'AVAILABLE' : 'UNAVAILABLE',
     majorRoadPercent,
     localRoadPercent,
     footwayPercent,
@@ -266,41 +316,38 @@ export function calculateMajorRoadShare(steps, totalDistanceMeters) {
     majorDistanceMeters: Math.round(majorMeters),
     localDistanceMeters: Math.round(localMeters),
     footwayDistanceMeters: Math.round(footwayMeters),
-    otherDistanceMeters: Math.round(_otherMeters),
-    disclaimer: 'Road classification is descriptive of infrastructure mix, not a safety ranking.',
+    otherDistanceMeters: Math.round(otherMeters),
+    disclaimer: hasClassificationData
+      ? 'Road classification uses OpenStreetMap highway tags. Unclassified steps are reported under Other / Unspecified.'
+      : 'Way-tag enrichment is unavailable for these route steps; highway classification cannot be reliably inferred.',
   };
 }
 
 /**
- * Built-in Benchmark Verified Support Point Registry.
- * Separated strictly from unverified OSM tags.
+ * Validates whether an evidence URL points to a specific document or location audit,
+ * rather than a generic top-level organisation homepage (e.g. https://112.gov.in).
+ * 
+ * @param {string} url
+ * @returns {boolean}
  */
-export const BENCHMARK_SUPPORT_POINTS = [
-  {
-    id: 'bengaluru_erss_helpdesk_mgroad',
-    name: 'National ERSS 112 Public Help Desk (MG Road Metro)',
-    type: 'help_centre',
-    coordinates: [77.6068, 12.9754],
-    publicAccessConfirmed: true,
-    operatingHours: '24/7',
-    verificationSource: 'National Emergency Response Support System (ERSS)',
-    evidenceUrl: 'https://112.gov.in',
-    verifiedAt: '2026-10-15T00:00:00Z',
-    expiresAt: '2026-11-15T00:00:00Z',
-  },
-  {
-    id: 'london_met_police_charing_cross',
-    name: 'Metropolitan Police Charing Cross Public Desk',
-    type: 'police_public_desk',
-    coordinates: [-0.1260, 51.5085],
-    publicAccessConfirmed: true,
-    operatingHours: '24/7',
-    verificationSource: 'Metropolitan Police Official Station Directory',
-    evidenceUrl: 'https://www.met.police.uk',
-    verifiedAt: '2026-10-15T00:00:00Z',
-    expiresAt: '2026-11-15T00:00:00Z',
-  },
-];
+export function isLocationSpecificEvidence(url) {
+  if (typeof url !== 'string' || !url.trim()) return false;
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname.replace(/\/+$/, '');
+    return path.length > 1; // Requires specific subpath e.g. /audit/station-12 or /kiosk-audit.pdf
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Built-in Verified Support Point Registry.
+ * Strictly empty by default to eliminate false security claims.
+ * Verified public assistance desks require location-specific independent access audit,
+ * confirmed public 24/7 operating desk, and unexpired verification date.
+ */
+export const BENCHMARK_SUPPORT_POINTS = [];
 
 /**
  * Evaluates verified support points within buffer distance of route.
@@ -328,7 +375,7 @@ export function evaluateVerifiedSupportPoints(
       expiredPointsCount: 0,
       supportPoints: [],
       evaluatedBufferMeters: safeBuffer,
-      registryVersion: 'nightwise-bengaluru-v1',
+      registryVersion: 'nightwise-v1.1',
       disclaimer: 'Verified support locations require independently confirmed public access and current verification expiry.',
     };
   }
@@ -336,7 +383,23 @@ export function evaluateVerifiedSupportPoints(
   const matchingPoints = [];
 
   for (const point of registry) {
-    const isExpired = new Date(point.expiresAt) < now;
+    // Validate coordinates
+    if (
+      !Array.isArray(point.coordinates) ||
+      point.coordinates.length !== 2 ||
+      typeof point.coordinates[0] !== 'number' ||
+      typeof point.coordinates[1] !== 'number' ||
+      !Number.isFinite(point.coordinates[0]) ||
+      !Number.isFinite(point.coordinates[1])
+    ) {
+      continue;
+    }
+
+    const expiryDate = point.expiresAt ? new Date(point.expiresAt) : null;
+    const isExpiryValid = expiryDate instanceof Date && !isNaN(expiryDate.getTime());
+    const isExpired = isExpiryValid ? expiryDate < now : true;
+    const isAccessConfirmed = point.publicAccessConfirmed === true;
+    const hasSpecificEvidence = isLocationSpecificEvidence(point.evidenceUrl) || Boolean(point.locationVerificationDocument);
 
     // Compute min perpendicular distance to polyline
     let minPerpDist = Infinity;
@@ -351,21 +414,26 @@ export function evaluateVerifiedSupportPoints(
       if (pDist < minPerpDist) minPerpDist = pDist;
     }
 
-    if (minPerpDist <= bufferMeters) {
+    if (minPerpDist <= safeBuffer) {
+      let verificationStatus = 'unverified_candidate';
+      if (isAccessConfirmed && hasSpecificEvidence && isExpiryValid) {
+        verificationStatus = isExpired ? 'expired_needs_recheck' : 'verified_active';
+      }
+
       matchingPoints.push({
         ...point,
         distanceFromRouteMeters: Math.round(minPerpDist),
         isExpired,
-        verificationStatus: isExpired ? 'expired_needs_recheck' : 'verified_active',
+        verificationStatus,
       });
     }
   }
 
-  const activeCount = matchingPoints.filter((p) => !p.isExpired).length;
+  const activeCount = matchingPoints.filter((p) => p.verificationStatus === 'verified_active').length;
 
   return {
     verifiedPointsCount: activeCount,
-    expiredPointsCount: matchingPoints.length - activeCount,
+    expiredPointsCount: matchingPoints.filter((p) => p.verificationStatus === 'expired_needs_recheck').length,
     supportPoints: matchingPoints,
     disclaimer: 'Verified support locations require independently confirmed public access and current verification expiry.',
   };

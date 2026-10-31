@@ -233,33 +233,52 @@ describe('Fuzz Testing & Invariant Hardening (Checklist Sections 9, 24)', () => 
         assert.ok(intel);
         assert.ok(intel.reproducibility);
         assert.equal(intel.venueIntelligence.totalVenuesCount, 0);
-        assert.equal(intel.supportIntelligence.verifiedPointsCount, 1); // 1 benchmark point near MG Road
+        // By default, 0 verified support points are returned without audited location evidence
+        assert.equal(intel.supportIntelligence.verifiedPointsCount, 0);
       });
     });
   });
 
-  describe('Multi-Timezone Invariance (Checklist Section 6 & 32)', () => {
-    it('evaluates opening hours and projected passing times consistently with ISO UTC timestamps', () => {
-      const targetUtc = new Date('2026-10-31T21:00:00.000Z');
-      const venue = {
-        id: 'v-tz',
-        name: 'Overnight Diner',
+  describe('Multi-Timezone Verification (Checklist Section 6 & 32)', () => {
+    it('evaluates opening hours in the venue local timezone rather than the host runtime timezone', () => {
+      // UTC Instant: 2026-10-31T18:45:00Z (Saturday evening in London, Sunday early morning in Bengaluru)
+      const targetUtc = new Date('2026-10-31T18:45:00.000Z');
+
+      // Venue 1: in London (coordinates ~ [-0.1281, 51.5080]), local time: Saturday 18:45 (UTC+0)
+      const londonVenue = {
+        id: 'v-london',
+        name: 'West End Bookshop',
         category: 'services',
-        coordinates: [77.6070, 12.9745],
-        tags: { opening_hours: '20:00-04:00' },
+        coordinates: [-0.1281, 51.5080],
+        tags: { opening_hours: 'Mo-Sa 10:00-20:00; Su off' },
       };
 
-      const res = evaluateRouteVenues(
-        [venue],
-        [[77.6066, 12.9756], [77.6074, 12.9733]],
-        500,
+      // Venue 2: in Bengaluru (coordinates ~ [77.6070, 12.9745]), local time: Sunday 00:15 (UTC+5:30)
+      const bengaluruVenue = {
+        id: 'v-bengaluru',
+        name: 'MG Road Bookshop',
+        category: 'services',
+        coordinates: [77.6070, 12.9745],
+        tags: { opening_hours: 'Mo-Sa 10:00-20:00; Su off' },
+      };
+
+      // At UTC 18:45, London venue is OPEN (Saturday 18:45 within 10:00-20:00)
+      const londonRes = evaluateRouteVenues(
+        [londonVenue],
+        [[-0.1281, 51.5080], [-0.1240, 51.5120]],
+        400,
         { walkingSpeedMs: 1.2, departureTime: targetUtc }
       );
+      assert.equal(londonRes.venues[0].openingStatus, 'OPEN', 'London venue should be OPEN at Saturday 18:45 local');
 
-      assert.equal(res.totalVenuesCount, 1);
-      assert.ok(res.venues[0].estimatedPassingTime.endsWith('Z'));
-      assert.ok(typeof res.openCount === 'number');
-      assert.equal(res.openCount, 1);
+      // At the exact same UTC instant, Bengaluru venue is CLOSED (Sunday 00:15 is Sunday off!)
+      const bengaluruRes = evaluateRouteVenues(
+        [bengaluruVenue],
+        [[77.6066, 12.9756], [77.6074, 12.9733]],
+        400,
+        { walkingSpeedMs: 1.2, departureTime: targetUtc }
+      );
+      assert.equal(bengaluruRes.venues[0].openingStatus, 'CLOSED', 'Bengaluru venue should be CLOSED at Sunday 00:15 local');
     });
   });
 });

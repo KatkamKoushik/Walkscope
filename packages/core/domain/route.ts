@@ -23,6 +23,8 @@ export interface RouteManeuver {
 export interface RouteStep {
   name?: string;
   ref?: string;
+  highway?: string | null;
+  mode?: string | null;
   distanceMeters: number;
   durationSeconds: number;
   instruction: string;

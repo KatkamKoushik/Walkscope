@@ -1,16 +1,17 @@
 /**
  * Opening Hours Intelligence Service
  * 
- * Evaluates OpenStreetMap opening_hours tags against pedestrian arrival timestamps.
+ * Evaluates OpenStreetMap opening_hours tags against pedestrian arrival timestamps
+ * in the venue's explicit local timezone.
  * 
  * STRICT HONESTY & NIGHTWISE RULES:
  * - Unknown, unparseable, or missing opening_hours tags must NEVER be assumed open.
  * - Missing or invalid hours evaluate to 'UNKNOWN'.
  * - Overnight intervals (e.g., 20:00-02:00) correctly roll over to next day.
- * - Local time considerations are preserved.
+ * - Venue-specific local timezone is explicitly resolved from coordinates or parameter.
  */
 
-export const OPENING_HOURS_PARSER_VERSION = '1.0.0';
+export const OPENING_HOURS_PARSER_VERSION = '1.1.0-timezone-aware';
 
 const DAY_MAP = {
   su: 0,
@@ -23,6 +24,126 @@ const DAY_MAP = {
 };
 
 const DAY_NAMES = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+/**
+ * Resolves an IANA timezone string from geographic coordinates.
+ * Covers benchmark pilot corridors and provides deterministic geographic mapping.
+ * 
+ * @param {number} lon - Longitude in degrees
+ * @param {number} lat - Latitude in degrees
+ * @returns {string} IANA Timezone Identifier (e.g. 'Asia/Kolkata', 'Europe/London')
+ */
+export function resolveTimezoneForCoordinates(lon, lat) {
+  if (typeof lon !== 'number' || typeof lat !== 'number' || !Number.isFinite(lon) || !Number.isFinite(lat)) {
+    return 'UTC';
+  }
+
+  // India & Subcontinent
+  if (lon >= 68.0 && lon <= 97.5 && lat >= 6.5 && lat <= 37.5) {
+    return 'Asia/Kolkata';
+  }
+
+  // United Kingdom & Ireland
+  if (lon >= -10.5 && lon <= 2.0 && lat >= 49.5 && lat <= 61.0) {
+    return 'Europe/London';
+  }
+
+  // Western & Central Europe
+  if (lon >= 2.0 && lon <= 16.0 && lat >= 42.0 && lat <= 55.0) {
+    return 'Europe/Paris';
+  }
+
+  // US East Coast
+  if (lon >= -80.0 && lon <= -70.0 && lat >= 38.0 && lat <= 45.0) {
+    return 'America/New_York';
+  }
+
+  // US West Coast
+  if (lon >= -125.0 && lon <= -114.0 && lat >= 32.0 && lat <= 42.0) {
+    return 'America/Los_Angeles';
+  }
+
+  // Default to UTC for unmapped coordinates
+  return 'UTC';
+}
+
+const FORMATTER_CACHE = new Map();
+
+function getFormatter(timeZone) {
+  const tz = timeZone || 'UTC';
+  let fmt = FORMATTER_CACHE.get(tz);
+  if (!fmt) {
+    try {
+      fmt = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        weekday: 'short',
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: false,
+      });
+      FORMATTER_CACHE.set(tz, fmt);
+    } catch {
+      return null;
+    }
+  }
+  return fmt;
+}
+
+/**
+ * Extracts the local weekday, hour, and minute in a specified IANA timezone.
+ * Uses the standard JavaScript Intl.DateTimeFormat with caching and fast-path UTC.
+ * 
+ * @param {Date} date - Target timestamp
+ * @param {string} [timezone='UTC'] - IANA Timezone string
+ * @returns {{ day: number, hours: number, minutes: number }}
+ */
+export function getLocalDateTimeParts(date, timezone = 'UTC') {
+  const validDate = date instanceof Date && !isNaN(date.getTime()) ? date : new Date();
+
+  // Fast path for UTC
+  if (!timezone || timezone === 'UTC') {
+    return {
+      day: validDate.getUTCDay(),
+      hours: validDate.getUTCHours(),
+      minutes: validDate.getUTCMinutes(),
+    };
+  }
+
+  const formatter = getFormatter(timezone);
+  if (!formatter) {
+    return {
+      day: validDate.getUTCDay(),
+      hours: validDate.getUTCHours(),
+      minutes: validDate.getUTCMinutes(),
+    };
+  }
+
+  try {
+    const parts = formatter.formatToParts(validDate);
+    let weekdayStr = '';
+    let hour = 0;
+    let minute = 0;
+
+    for (const p of parts) {
+      if (p.type === 'weekday') weekdayStr = p.value;
+      if (p.type === 'hour') hour = parseInt(p.value, 10);
+      if (p.type === 'minute') minute = parseInt(p.value, 10);
+    }
+
+    if (hour === 24) hour = 0;
+
+    const shortDays = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    const day = typeof shortDays[weekdayStr] === 'number' ? shortDays[weekdayStr] : validDate.getUTCDay();
+
+    return { day, hours: hour, minutes: minute };
+  } catch {
+    return {
+      day: validDate.getUTCDay(),
+      hours: validDate.getUTCHours(),
+      minutes: validDate.getUTCMinutes(),
+    };
+  }
+}
 
 /**
  * Parses a HH:MM string into minutes from midnight (0 - 1439).
@@ -76,29 +197,60 @@ export function parseDayRange(dayStr) {
 }
 
 /**
- * Evaluates an OSM opening_hours string at a target timestamp.
+ * Evaluates an OSM opening_hours string at a target timestamp in the venue's timezone.
  * 
  * @param {string | undefined | null} rawOpeningHours - Raw OSM tag value
  * @param {Date | string | number} [targetDate=new Date()] - Projected pedestrian passing time
+ * @param {string} [timezone='UTC'] - Venue's IANA timezone
  * @returns {{
  *   status: 'OPEN' | 'CLOSED' | 'UNKNOWN';
  *   ruleMatched?: string;
  *   reason?: string;
  *   rawTag: string | null;
+ *   evaluatedTimezone?: string;
+ *   localTimeFormatted?: string;
  * }}
  */
-export function evaluateOpeningHours(rawOpeningHours, targetDate = new Date()) {
+export function evaluateOpeningHours(rawOpeningHours, targetDate = new Date(), timezone = 'UTC') {
   const dateObj = targetDate instanceof Date ? targetDate : new Date(targetDate);
   const validDate = !isNaN(dateObj.getTime()) ? dateObj : new Date();
 
   const raw = typeof rawOpeningHours === 'string' ? rawOpeningHours.trim() : null;
 
-  // 1. Missing or empty tag
+  // 1. Missing or empty tag: Never assume open
   if (!raw) {
     return {
       status: 'UNKNOWN',
       reason: 'No opening_hours tag recorded in OpenStreetMap',
       rawTag: null,
+      evaluatedTimezone: timezone,
+    };
+  }
+
+  // Guard against ReDoS and payload attacks: cap length to 500 chars
+  if (raw.length > 500) {
+    return {
+      status: 'UNKNOWN',
+      reason: 'Opening hours tag exceeds maximum allowable string length (500 chars)',
+      rawTag: raw.slice(0, 500),
+      evaluatedTimezone: timezone,
+    };
+  }
+
+  // Reject unsupported complex OSM opening_hours grammar (astronomical, holiday offsets, date-specific, week offsets)
+  // Walkscope is an honest partial parser; unsupported expressions strictly return 'UNKNOWN' rather than guessing.
+  if (
+    /\b(PH|SH|sunrise|sunset|dusk|dawn|Easter)\b/i.test(raw) ||
+    /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/i.test(raw) ||
+    /\b\d{4}-\d{2}-\d{2}\b/.test(raw) ||
+    /\[\s*[-+]?\d+\s*\]/.test(raw) ||
+    /\+$/.test(raw)
+  ) {
+    return {
+      status: 'UNKNOWN',
+      reason: 'Unsupported OSM opening_hours grammar (astronomical, calendar dates, holiday calendars, or variable offsets)',
+      rawTag: raw,
+      evaluatedTimezone: timezone,
     };
   }
 
@@ -108,14 +260,16 @@ export function evaluateOpeningHours(rawOpeningHours, targetDate = new Date()) {
       status: 'OPEN',
       ruleMatched: '24/7',
       rawTag: raw,
+      evaluatedTimezone: timezone,
     };
   }
 
-  const currentDay = validDate.getDay(); // 0 = Su .. 6 = Sa
-  const currentMinutes = validDate.getHours() * 60 + validDate.getMinutes();
-
-  // Also check yesterday for overnight spans that roll past midnight
+  // Extract date components in the venue's specific local timezone
+  const localTime = getLocalDateTimeParts(validDate, timezone);
+  const currentDay = localTime.day; // 0 = Su .. 6 = Sa
+  const currentMinutes = localTime.hours * 60 + localTime.minutes;
   const yesterdayDay = (currentDay + 6) % 7;
+  const localTimeFormatted = `${DAY_NAMES[currentDay]} ${String(localTime.hours).padStart(2, '0')}:${String(localTime.minutes).padStart(2, '0')}`;
 
   let anyRuleMatchedDay = false;
   let isOpen = false;
@@ -149,11 +303,9 @@ export function evaluateOpeningHours(rawOpeningHours, targetDate = new Date()) {
       const timePart = match[2]?.trim();
 
       const applicableDays = dayPart ? parseDayRange(dayPart) : [0, 1, 2, 3, 4, 5, 6];
-
-      // Parse intervals e.g. "08:00-13:00, 14:00-18:00"
       const intervals = timePart.split(',').map((iv) => iv.trim());
 
-      // Case A: Check if rule applies to today
+      // Case A: Rule applies to today
       if (applicableDays.includes(currentDay)) {
         anyRuleMatchedDay = true;
 
@@ -172,7 +324,6 @@ export function evaluateOpeningHours(rawOpeningHours, targetDate = new Date()) {
               }
             } else {
               // Overnight span on current day (e.g. 20:00 - 02:00)
-              // Open if current time >= startMin
               if (currentMinutes >= startMin) {
                 isOpen = true;
                 matchedRuleDesc = `${DAY_NAMES[currentDay]} ${interval} (overnight)`;
@@ -183,7 +334,7 @@ export function evaluateOpeningHours(rawOpeningHours, targetDate = new Date()) {
         }
       }
 
-      // Case B: Check if yesterday had an overnight rule rolling into today
+      // Case B: Yesterday had an overnight rule rolling into today
       if (applicableDays.includes(yesterdayDay)) {
         for (const interval of intervals) {
           const [startStr, endStr] = interval.split('-').map((s) => s.trim());
@@ -208,6 +359,8 @@ export function evaluateOpeningHours(rawOpeningHours, targetDate = new Date()) {
       status: 'OPEN',
       ruleMatched: matchedRuleDesc,
       rawTag: raw,
+      evaluatedTimezone: timezone,
+      localTimeFormatted,
     };
   }
 
@@ -216,31 +369,38 @@ export function evaluateOpeningHours(rawOpeningHours, targetDate = new Date()) {
       status: 'CLOSED',
       reason: `Explicitly listed as closed (${matchedRuleDesc})`,
       rawTag: raw,
+      evaluatedTimezone: timezone,
+      localTimeFormatted,
     };
   }
 
   if (anyRuleMatchedDay) {
     return {
       status: 'CLOSED',
-      reason: 'Outside listed operating hours for today',
+      reason: `Outside operating hours for ${localTimeFormatted}`,
       rawTag: raw,
+      evaluatedTimezone: timezone,
+      localTimeFormatted,
     };
   }
 
-  // If rules were specified for specific days and today is not one of them
   const hasSpecificDays = rules.some((r) => /^(Mo|Tu|We|Th|Fr|Sa|Su)\b/i.test(r));
   if (hasSpecificDays && anyRuleMatchedDay === false) {
     return {
       status: 'CLOSED',
       reason: `No operating hours listed for ${DAY_NAMES[currentDay]}`,
       rawTag: raw,
+      evaluatedTimezone: timezone,
+      localTimeFormatted,
     };
   }
 
-  // Unparseable / complex syntax: Must never assume open
+  // Complex or unparseable: Must NEVER assume open
   return {
     status: 'UNKNOWN',
     reason: 'Complex or unparseable opening_hours rule format',
     rawTag: raw,
+    evaluatedTimezone: timezone,
+    localTimeFormatted,
   };
 }
