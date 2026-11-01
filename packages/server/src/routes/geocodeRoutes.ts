@@ -152,51 +152,8 @@ export async function registerGeocodeRoutes(fastify: FastifyInstance) {
         clearTimeout(photonTimer);
       }
 
-      // 2. Fallback to OpenStreetMap Nominatim with strict timeout
-      const nominatimController = new AbortController();
-      const nominatimTimer = setTimeout(() => nominatimController.abort(), 4000);
-
-      try {
-        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=${limit}&addressdetails=1`;
-        const res = await fetch(url, {
-          headers: {
-            'User-Agent': 'WalkscopeGeospatialGateway/1.0 (https://github.com/KatkamKoushik/Walkscope; security@walkscope.app)',
-            'Accept-Language': 'en',
-          },
-          signal: nominatimController.signal,
-        });
-
-        clearTimeout(nominatimTimer);
-
-        if (res.ok) {
-          const data: any[] = await res.json();
-          if (Array.isArray(data)) {
-            const results: GeocodeLocation[] = data
-              .map((item) => {
-                const lat = parseFloat(item.lat);
-                const lon = parseFloat(item.lon);
-                if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-                const displayName = typeof item.display_name === 'string' ? item.display_name : '';
-                return {
-                  title: item.name || (displayName ? displayName.split(',')[0].trim() : 'Unknown Place'),
-                  subtitle: displayName,
-                  latitude: lat,
-                  longitude: lon,
-                };
-              })
-              .filter((loc: GeocodeLocation | null): loc is GeocodeLocation => loc !== null);
-
-            if (results.length > 0) {
-              await defaultCache.set(cacheKey, results, 86400); // 24h
-              reply.header('X-Cache-Status', 'MISS');
-              return results;
-            }
-          }
-        }
-      } catch {
-        clearTimeout(nominatimTimer);
-      }
-
+      // Note: Deliberately do NOT fallback to public Nominatim for autocomplete (OSMF Fair Use Policy).
+      // Public Nominatim prohibits keystroke autocomplete and enforces a strict 1 req/s maximum.
       return [];
     }
   );

@@ -36,22 +36,53 @@ function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number)
 }
 
 /**
- * Calculates minimum distance from user coordinate to any point on route geometry.
+ * Calculates minimum perpendicular distance in meters from coordinate to any polyline line segment.
  */
-function minDistanceToRoute(
+function minDistanceToRouteSegments(
   lat: number,
   lon: number,
   coordinates: [number, number][]
 ): number {
   if (!coordinates || coordinates.length === 0) return 0;
-  let minDist = Infinity;
-  for (const pt of coordinates) {
-    const ptLon = pt[0];
-    const ptLat = pt[1];
-    const d = haversineMeters(lat, lon, ptLat, ptLon);
-    if (d < minDist) minDist = d;
+  if (coordinates.length === 1) {
+    return haversineMeters(lat, lon, coordinates[0][1], coordinates[0][0]);
   }
-  return minDist;
+
+  let minM = Infinity;
+  const midLatRad = (lat * Math.PI) / 180;
+  const mPerDegLon = 111320 * Math.cos(midLatRad);
+  const mPerDegLat = 110540;
+
+  const px = lon * mPerDegLon;
+  const py = lat * mPerDegLat;
+
+  for (let i = 0; i < coordinates.length - 1; i++) {
+    const [aLon, aLat] = coordinates[i];
+    const [bLon, bLat] = coordinates[i + 1];
+
+    const ax = aLon * mPerDegLon;
+    const ay = aLat * mPerDegLat;
+    const bx = bLon * mPerDegLon;
+    const by = bLat * mPerDegLat;
+
+    const dx = bx - ax;
+    const dy = by - ay;
+    const lenSq = dx * dx + dy * dy;
+
+    let d: number;
+    if (lenSq === 0) {
+      d = Math.hypot(px - ax, py - ay);
+    } else {
+      const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq));
+      const cx = ax + t * dx;
+      const cy = ay + t * dy;
+      d = Math.hypot(px - cx, py - cy);
+    }
+
+    if (d < minM) minM = d;
+  }
+
+  return minM;
 }
 
 export const NavigateScreen: React.FC<NavigateScreenProps> = ({
@@ -127,7 +158,7 @@ export const NavigateScreen: React.FC<NavigateScreenProps> = ({
 
             // 3. Off-route detection with 2-consecutive hysteresis to prevent false flickering
             if (coordinates.length > 0) {
-              const distToRoute = minDistanceToRoute(latitude, longitude, coordinates);
+              const distToRoute = minDistanceToRouteSegments(latitude, longitude, coordinates);
               if (distToRoute > 50) {
                 consecutiveOffRouteCountRef.current += 1;
                 if (consecutiveOffRouteCountRef.current >= 2) {
@@ -239,6 +270,30 @@ export const NavigateScreen: React.FC<NavigateScreenProps> = ({
     );
   }
 
+  // Dynamic maneuver distance, remaining trip metrics, and maneuver types
+  const targetLocation = nextStep?.location || currentStep?.location;
+  let distanceToUpcomingManeuver = currentStep?.distanceMeters || 0;
+  if (userLocation && targetLocation && Array.isArray(targetLocation) && targetLocation.length >= 2) {
+    distanceToUpcomingManeuver = haversineMeters(
+      userLocation.latitude,
+      userLocation.longitude,
+      targetLocation[1],
+      targetLocation[0]
+    );
+  }
+
+  const remainingStepsDistance = steps
+    .slice(currentStepIndex + 1)
+    .reduce((acc: number, s: any) => acc + (s.distanceMeters || 0), 0);
+  const dynamicRemainingMeters = Math.max(0, Math.round(distanceToUpcomingManeuver + remainingStepsDistance));
+  const walkingSpeedMs = 1.2;
+  const dynamicRemainingSeconds = Math.max(0, Math.round(dynamicRemainingMeters / walkingSpeedMs));
+
+  const currentManeuverType = currentStep?.maneuver?.type || currentStep?.maneuverType || currentStep?.type;
+  const currentManeuverModifier = currentStep?.maneuver?.modifier || currentStep?.maneuverModifier || currentStep?.modifier;
+  const nextManeuverType = nextStep?.maneuver?.type || nextStep?.maneuverType || nextStep?.type;
+  const nextManeuverModifier = nextStep?.maneuver?.modifier || nextStep?.maneuverModifier || nextStep?.modifier;
+
   return (
     <View style={styles.container}>
       {/* Top GPS Status & Off-Route Alert Strip */}
@@ -276,12 +331,12 @@ export const NavigateScreen: React.FC<NavigateScreenProps> = ({
       <View style={styles.hudHeader}>
         <View style={styles.maneuverIconBox}>
           <Text style={styles.maneuverArrow}>
-            {getManeuverIcon(currentStep?.maneuverType, currentStep?.maneuverModifier)}
+            {getManeuverIcon(currentManeuverType, currentManeuverModifier)}
           </Text>
         </View>
         <View style={styles.maneuverTextGroup}>
           <Text style={styles.stepDistance}>
-            In {formatDistance(currentStep?.distanceMeters || 120)}
+            In {formatDistance(userLocation ? distanceToUpcomingManeuver : currentStep?.distanceMeters)}
           </Text>
           <Text style={styles.stepInstruction} numberOfLines={2}>
             {currentStep?.instruction || 'Proceed along corridor'}
@@ -299,14 +354,14 @@ export const NavigateScreen: React.FC<NavigateScreenProps> = ({
         <View style={styles.statusCol}>
           <Text style={styles.statusLabel}>REMAINING</Text>
           <Text style={styles.statusValue}>
-            {formatDistance(activeRoute.distanceMeters)}
+            {formatDistance(userLocation ? dynamicRemainingMeters : activeRoute.distanceMeters)}
           </Text>
         </View>
         <View style={styles.statusDivider} />
         <View style={styles.statusCol}>
           <Text style={styles.statusLabel}>EST. TIME</Text>
           <Text style={styles.statusValue}>
-            {formatDuration(activeRoute.durationSeconds)}
+            {formatDuration(userLocation ? dynamicRemainingSeconds : activeRoute.durationSeconds)}
           </Text>
         </View>
         <View style={styles.statusDivider} />
@@ -342,7 +397,7 @@ export const NavigateScreen: React.FC<NavigateScreenProps> = ({
             <Text style={styles.nextStepLabel}>THEN</Text>
             <View style={styles.nextStepRow}>
               <Text style={styles.nextStepIcon}>
-                {getManeuverIcon(nextStep.maneuverType, nextStep.maneuverModifier)}
+                {getManeuverIcon(nextManeuverType, nextManeuverModifier)}
               </Text>
               <Text style={styles.nextStepText} numberOfLines={1}>
                 {nextStep.instruction}

@@ -25,6 +25,14 @@ updates:
           - "typescript"
           - "eslint*"
           - "@typescript-eslint/*"
+    ignore:
+      # React and React Native are strictly pinned by Expo SDK 58 runtime compatibility
+      - dependency-name: "react"
+      - dependency-name: "react-dom"
+      - dependency-name: "react-native"
+      # Prevent breaking major updates for TypeScript beyond Expo SDK 58 matrix
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   # Maintain GitHub Actions dependencies
   - package-ecosystem: "github-actions"

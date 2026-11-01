@@ -1,4 +1,9 @@
-import Pbf from 'pbf';
+import * as PbfModule from 'pbf';
+
+// Dual-compatibility layer for Pbf v3 (default export class) and Pbf v5 (PbfReader/PbfWriter)
+const PbfClass = PbfModule.default || PbfModule.Pbf || PbfModule;
+const PbfReader = PbfModule.PbfReader || PbfClass;
+const PbfWriter = PbfModule.PbfWriter || PbfClass;
 
 /** Field number of `layers` in a Mapbox Vector Tile, and of `name` in a layer. */
 const TILE_LAYER_FIELD = 3;
@@ -6,7 +11,7 @@ const LAYER_NAME_FIELD = 1;
 
 /** Read a layer's name without touching its features. */
 function layerName(layerBytes) {
-  const pbf = new Pbf(layerBytes);
+  const pbf = new PbfReader(layerBytes);
   let name = '';
   pbf.readFields((tag, _result, reader) => {
     if (tag !== LAYER_NAME_FIELD) return;
@@ -25,8 +30,8 @@ function layerName(layerBytes) {
 export function stripTileLayers(bytes, dropNames) {
   const drop = new Set(dropNames || []);
   if (!bytes?.length || !drop.size) return bytes;
-  const reader = new Pbf(bytes);
-  const writer = new Pbf();
+  const reader = new PbfReader(bytes);
+  const writer = new PbfWriter();
   let dropped = false;
   reader.readFields((tag, _result, pbf) => {
     if (tag !== TILE_LAYER_FIELD) return;

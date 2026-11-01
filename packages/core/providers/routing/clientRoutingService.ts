@@ -142,6 +142,8 @@ export async function calculatePedestrianRoutes(
         return {
           name: step.name || roadName || '',
           ref: step.ref || '',
+          highway: step.highway || null,
+          mode: step.mode || null,
           instruction,
           roadName,
           distanceMeters: Math.round(step.distanceM || 0),

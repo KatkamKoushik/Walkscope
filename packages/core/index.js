@@ -15,3 +15,4 @@ export * from './services/twilightService.js';
 export * from './services/contextScoringService.js';
 export * from './services/openingHoursService.js';
 export * from './services/routeIntelligenceService.js';
+export * from './services/navigationEngine.js';

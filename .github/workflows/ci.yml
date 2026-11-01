@@ -108,7 +108,7 @@ jobs:
         run: npm run typecheck
 
   unit-tests:
-    name: Unit & Stress Test Suite (210 Tests)
+    name: Unit & Stress Test Suite (229 Tests)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:

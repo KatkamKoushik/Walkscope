@@ -9,7 +9,7 @@
 [![React Native](https://img.shields.io/badge/React%20Native-0.88.1-61DAFB?style=flat-square&logo=react&logoColor=black)](https://reactnative.dev/)
 [![Expo](https://img.shields.io/badge/Expo-58.0-000020?style=flat-square&logo=expo&logoColor=white)](https://expo.dev/)
 [![Docker](https://img.shields.io/badge/Docker-Supported-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
-[![Tests](https://img.shields.io/badge/Tests-210%2F210%20Passing-brightgreen?style=flat-square)](https://nodejs.org/api/test.html)
+[![Tests](https://img.shields.io/badge/Tests-229%2F229%20Passing-brightgreen?style=flat-square)](https://nodejs.org/api/test.html)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 
 ---
@@ -224,7 +224,7 @@ The project maintains a zero-tolerance policy for type errors, lint warnings, te
 | **`Dependency Audit & Supply Chain`** | `npm audit`, `npm ci --dry-run` | High/critical CVE audit and frozen package lockfile consistency. | **Passing (0 vulnerabilities)** |
 | **`Repository Hygiene & Integrity`** | Shell hygiene gate | Merge conflict markers, uncommitted `.env` files, `.DS_Store`, and temporary test artifacts. | **Passing (Clean)** |
 | **`Gateway Production Build`** | TypeScript `tsc` | Multi-workspace compilation and verification of `/dist` runtime entrypoints. | **Passing (Built)** |
-| **`Unit & Stress Test Suite`** | Node.js Test Runner | Complete 33-suite battery (210 tests) covering routing, daylight, opening hours, intelligence, SQLite, ReDoS fuzzing, and 100-burst concurrency stress. | **Passing (210/210 Passed)** |
+| **`Unit & Stress Test Suite`** | Node.js Test Runner | Complete 34-suite battery (229 tests) covering routing, daylight, opening hours, intelligence, deterministic navigation, SQLite, ReDoS fuzzing, and 100-burst concurrency stress. | **Passing (229/229 Passed)** |
 | **`TypeScript Static Analysis`** | TypeScript 5.3+ | Strict cross-monorepo type checking across `core`, `mobile`, and `server`. | **Passing (0 errors)** |
 | **`Expo Doctor Health Check`** | `@expo/doctor` | React Native 0.88.1, Expo 58 compatibility, peer dependency resolution, native plugins. | **Passing (All checks passed)** |
 
@@ -237,7 +237,7 @@ npm run typecheck
 # Code quality linting
 npm run lint
 
-# Complete unit, fuzz, and stress test battery (210 tests)
+# Complete unit, fuzz, and stress test battery (229 tests)
 npm test
 
 # Mobile ecosystem health
@@ -267,7 +267,7 @@ npm ci
 # Run static typecheck across all packages
 npm run typecheck
 
-# Execute the complete offline unit & stress test suite (210 tests)
+# Execute the complete offline unit & stress test suite (229 tests)
 npm test
 ```
 
@@ -387,27 +387,31 @@ Walkscope implements defensive engineering controls derived from the **Productio
 ### 1. OWASP API Security & Abuse Mitigation (Sections 6 & 11)
 - **Payload Exhaustion Cap**: Gateway strictly caps HTTP request bodies at 1 MB (`bodyLimit: 1048576`) in `packages/server/src/server.ts`, preventing memory exhaustion and large payload DoS.
 - **Information Disclosure Shield**: Fastify global error handler intercepts all unhandled exceptions, masking Node.js internals, filesystem paths, and stack traces (`OWASP API3:2023`), emitting structured RFC 7807 JSON error responses.
-- **Geocode Query Sanitization**: Strips ASCII control characters (`/[\x00-\x1F\x7F]/g`) and clamps search strings to 120 characters in `packages/server/src/routes/geocodeRoutes.ts`.
+- **Geocode Query Sanitization & Policy**: Strips ASCII control characters (`/[\x00-\x1F\x7F]/g`) and clamps search strings to 120 characters in `packages/server/src/routes/geocodeRoutes.ts`. Autocomplete strictly queries Photon (designed for typeahead) with zero queries forwarded to public Nominatim (fully respecting OSM Foundation Fair-Use Policy).
 - **Fair-Use Rate Limiting**: Gateway enforces an IP-level rate-limiting bucket (100 req/min) via `@fastify/rate-limit` returning HTTP 429 when breached.
 
 ### 2. High-Concurrency Stress SLAs & Cache Stampede Defense (Sections 12, 16, 31, 32)
-- **100 Concurrent Request Burst**: Gateway benchmark proves 100 concurrent `/health` requests are served with $p_{95} < 50\text{ms}$ and 100% success rate under single-process Node.js.
+- **100 Concurrent Request Burst**: Gateway benchmark proves 100 concurrent `/health` requests are served with SLA latency bounds ($p_{50} < 100\text{ms}, p_{95} < 250\text{ms}$) and 100% success rate under single-process Node.js.
 - **In-Flight Request Deduplication**: Coalesces 50 concurrent identical route calculations into exactly **1** in-flight computation, preventing cache stampedes and upstream OSRM provider flooding.
 - **Memory Stability Under Sustained Load**: Verified via 200 rapid burst cycles maintaining bounded heap memory ($\Delta_{\text{heap}} < 35\text{MB}$) without runaway leaks.
 - **Live Memory Telemetry**: The `/health` endpoint exposes real-time runtime diagnostics (`heapUsedMb`, `heapTotalMb`, `rssMb`, `cacheEntries`).
 
-### 3. ReDoS, Parser Fuzzing & Timezone Invariance (Sections 9, 21, 24)
+### 3. ReDoS, Parser Fuzzing & Venue Timezones (Sections 9, 21, 24)
 - **Catastrophic Backtracking Immunity**: Tested against 500+ malicious regex patterns, repeated whitespace sequences, 5,000-character inputs, emojis, and malformed strings into `openingHoursService.js`.
+- **Venue-Specific Timezone Resolution**: Evaluates arrival times in the venue's explicit local timezone (e.g. `Asia/Kolkata`, `Europe/London`) resolved from coordinates, ensuring arrival status evaluates accurately regardless of server or device clock.
 - **Boundary Validation**: Rejects invalid time strings such as `24:01` while permitting standard midnight wrap-arounds.
-- **Timezone Invariance**: Opening-hours calculations evaluate identically across UTC, Indian Standard Time (IST), and British Summer Time (BST).
 - **Degenerate Polyline Defense**: Route intelligence gracefully handles 0-point, 1-point, and anti-meridian geometries without runtime panics.
 
-### 4. Mobile Sensor Kinematic Glitch Filtering (Sections 20 & 55)
+### 4. Mobile Sensor Kinematics & Live Navigation (Sections 20 & 55)
 - **Accuracy Gating**: Discards GPS fixes with horizontal accuracy $> 65\text{m}$ to prevent erratic jumping indoors or in urban canyons.
 - **Teleportation Filtering**: Rejects physically impossible pedestrian speed jumps ($> 25\text{m/s}$ or $\sim 90\text{km/h}$ within $<10\text{s}$).
-- **Hysteresis Alert Smoothing**: Requires 2 consecutive off-route GPS fixes before presenting the off-route warning banner, preventing false positive flickering along corridor boundaries.
+- **Nearest Line-Segment Off-Route Detection**: Measures perpendicular distance to route line segments rather than coarse vertices, eliminating false alarms on straight corridors.
+- **Dynamic Maneuver Distance & Turn Icons**: HUD evaluates distances dynamically against upcoming maneuver locations and reads typed maneuvers (`step.maneuver.type`).
+- **Hysteresis Alert Smoothing**: Requires 2 consecutive off-route GPS fixes before presenting the off-route warning banner.
 
-### 5. Local SQLite Defensive Sanitization (Sections 8, 14, 55)
+### 5. Genuine OSM Road Classification & Zero-Falsehood Support (Sections 8, 14, 55)
+- **OSM Highway Classification**: Classifies road mix directly from OpenStreetMap tags (`motorway`, `trunk`, `primary`, `secondary`, `tertiary`, `residential`, `footway`, `pedestrian`, `path`) rather than guessing from street name substrings.
+- **Zero-Falsehood Verified Support Registry**: Empty by default (`0` verified points). Verified public desks strictly require independently audited location-specific access evidence, confirmed 24/7 operating desk status, and active non-expired audit dates.
 - **Coordinate Clamping**: Defensive bounds clamp latitudes $[-90, 90]$ and longitudes $[-180, 180]$ on all write operations.
 - **SQL Injection Resistance**: All SQL queries use parameterized prepared statements; verified immune against injection vectors (`'; DROP TABLE saved_journeys; --`).
 - **High-Concurrency Burst Writes**: Verified safe across 50 simultaneous parallel writes without table locking or WAL corruption.

@@ -32,6 +32,8 @@ export interface VenueIntelligenceResult {
 }
 
 export interface RoadShareResult {
+  isAvailable?: boolean;
+  status?: string;
   majorRoadPercent: number;
   localRoadPercent: number;
   footwayPercent: number;
@@ -39,8 +41,11 @@ export interface RoadShareResult {
   majorDistanceMeters: number;
   localDistanceMeters: number;
   footwayDistanceMeters: number;
+  otherDistanceMeters?: number;
   disclaimer: string;
 }
+
+export declare function isLocationSpecificEvidence(url: string): boolean;
 
 export interface VerifiedSupportPoint {
   id: string;
@@ -85,7 +90,7 @@ export declare function computeAlongRouteDistanceMeters(
 ): number;
 
 export declare function evaluateRouteVenues(
-  amenities: Array<any>,
+  amenities: any[],
   polyline: Array<[number, number]>,
   totalDistanceMeters: number,
   options?: {
@@ -94,25 +99,33 @@ export declare function evaluateRouteVenues(
   }
 ): VenueIntelligenceResult;
 
+export declare function classifyStepHighway(
+  step: any
+): 'major' | 'local' | 'footway' | 'other';
+
 export declare function calculateMajorRoadShare(
-  steps: Array<any>,
+  steps: any[],
   totalDistanceMeters: number
 ): RoadShareResult;
 
+export declare const BENCHMARK_SUPPORT_POINTS: VerifiedSupportPoint[];
+
 export declare function evaluateVerifiedSupportPoints(
   polyline: Array<[number, number]>,
-  customRegistry?: Array<any>,
+  customRegistry?: VerifiedSupportPoint[],
   bufferMeters?: number
 ): SupportIntelligenceResult;
 
 export declare function computeRouteIntelligence(params: {
   polyline: Array<[number, number]>;
   distanceMeters: number;
-  durationSeconds: number;
-  steps?: Array<any>;
-  amenities?: Array<any>;
+  durationSeconds?: number;
+  steps: any[];
+  amenities: any[];
   options?: {
     walkingSpeedMs?: number;
-    departureTime?: string;
+    departureTime?: Date | string;
+    verifiedSupportRegistry?: VerifiedSupportPoint[];
+    bufferMeters?: number;
   };
 }): RouteIntelligenceReport;

@@ -179,6 +179,8 @@ export function normalizeOsrmSteps(route) {
         exit: Number.isInteger(raw.maneuver?.exit) ? raw.maneuver.exit : null,
         name: cleanText(raw.name),
         ref: cleanText(raw.ref) || null,
+        highway: cleanText(raw.highway || raw.maneuver?.highway || '') || null,
+        mode: cleanText(raw.mode) || null,
         distanceM: Math.max(0, Math.round(Number(raw.distance) || 0)),
         durationS: Math.max(0, Math.round(Number(raw.duration) || 0)),
         lon: Number(lon.toFixed(6)),
