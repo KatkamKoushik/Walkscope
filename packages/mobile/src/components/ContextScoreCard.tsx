@@ -13,6 +13,8 @@ export const ContextScoreCard: React.FC<ContextScoreCardProps> = ({ score }) => 
         return '#10B981'; // emerald
       case 'Moderate':
         return '#F59E0B'; // amber
+      case 'Incomplete Data':
+        return '#EF4444'; // rose/red
       case 'Sparse':
       default:
         return '#64748B'; // slate
@@ -20,6 +22,8 @@ export const ContextScoreCard: React.FC<ContextScoreCardProps> = ({ score }) => 
   };
 
   const badgeColor = getBadgeColor(score.ratingLabel);
+  const amenityScoreVal = score.amenityScore !== null ? score.amenityScore : 0;
+  const isAmenityUnavailable = score.amenityStatus === 'UNAVAILABLE';
 
   return (
     <View style={styles.card}>
@@ -27,7 +31,7 @@ export const ContextScoreCard: React.FC<ContextScoreCardProps> = ({ score }) => 
         <View style={styles.titleContainer}>
           <Text style={styles.title}>{score.scoreName}</Text>
           <Text style={styles.subtitle}>
-            {score.amenitiesCount} mapped facilities • {score.daylightState}
+            {isAmenityUnavailable ? 'OSM data unavailable' : `${score.amenitiesCount} mapped facilities`} • {Math.round((score.imageryCoverageRatio || 0) * 100)}% imagery
           </Text>
         </View>
         <View style={[styles.badge, { backgroundColor: badgeColor }]}>
@@ -36,42 +40,67 @@ export const ContextScoreCard: React.FC<ContextScoreCardProps> = ({ score }) => 
         </View>
       </View>
 
-      {/* Progress Bars for Components */}
+      {/* Progress Bars for Information Coverage Components */}
       <View style={styles.metricsContainer}>
-        {/* Amenity Density */}
+        {/* Amenity Density (0-50 pts) */}
         <View style={styles.metricRow}>
           <View style={styles.metricLabelRow}>
-            <Text style={styles.metricLabel}>Mapped Amenities</Text>
-            <Text style={styles.metricValue}>{score.amenityScore}/40 pts ({score.amenityDensityPer100m}/100m)</Text>
-          </View>
-          <View style={styles.progressBarBackground}>
-            <View style={[styles.progressBarFill, { width: `${(score.amenityScore / 40) * 100}%`, backgroundColor: '#38BDF8' }]} />
-          </View>
-        </View>
-
-        {/* Solar Daylight */}
-        <View style={styles.metricRow}>
-          <View style={styles.metricLabelRow}>
-            <Text style={styles.metricLabel}>Daylight Factor</Text>
-            <Text style={styles.metricValue}>{score.daylightScore}/30 pts ({score.solarElevationDeg.toFixed(1)}° solar)</Text>
-          </View>
-          <View style={styles.progressBarBackground}>
-            <View style={[styles.progressBarFill, { width: `${(score.daylightScore / 30) * 100}%`, backgroundColor: '#FBBF24' }]} />
-          </View>
-        </View>
-
-        {/* Street Imagery */}
-        <View style={styles.metricRow}>
-          <View style={styles.metricLabelRow}>
-            <Text style={styles.metricLabel}>Street Imagery</Text>
+            <Text style={styles.metricLabel}>Corridor Amenity Density</Text>
             <Text style={styles.metricValue}>
-              {score.hasStreetImagery ? `${score.imageryScore}/30 pts (Panoramax)` : '0/30 pts (No coverage)'}
+              {isAmenityUnavailable
+                ? 'Unavailable (Overpass Error)'
+                : `${amenityScoreVal}/50 pts (${score.amenityDensityPer100m}/100m)`}
             </Text>
           </View>
           <View style={styles.progressBarBackground}>
-            <View style={[styles.progressBarFill, { width: `${(score.imageryScore / 30) * 100}%`, backgroundColor: '#A78BFA' }]} />
+            <View
+              style={[
+                styles.progressBarFill,
+                {
+                  width: `${(amenityScoreVal / 50) * 100}%`,
+                  backgroundColor: isAmenityUnavailable ? '#EF4444' : '#38BDF8',
+                },
+              ]}
+            />
           </View>
         </View>
+
+        {/* Street Imagery Coverage (0-50 pts) */}
+        <View style={styles.metricRow}>
+          <View style={styles.metricLabelRow}>
+            <Text style={styles.metricLabel}>
+              Street Imagery ({score.imagerySamplingMode === 'corridor_checkpoints' ? 'Corridor Sampled' : 'Near Origin'})
+            </Text>
+            <Text style={styles.metricValue}>
+              {score.hasStreetImagery
+                ? `${score.imageryScore}/50 pts (${Math.round((score.imageryCoverageRatio || 0) * 100)}% coverage)`
+                : '0/50 pts (No coverage)'}
+            </Text>
+          </View>
+          <View style={styles.progressBarBackground}>
+            <View
+              style={[
+                styles.progressBarFill,
+                { width: `${(score.imageryScore / 50) * 100}%`, backgroundColor: '#A78BFA' },
+              ]}
+            />
+          </View>
+        </View>
+      </View>
+
+      {/* Environmental Walking Conditions (Independent Dimension) */}
+      <View style={styles.environmentalBox}>
+        <View style={styles.environmentalHeader}>
+          <Text style={styles.environmentalTitle}>
+            ☀️ Ambient Condition: {score.walkingConditions?.conditionLabel || score.daylightState}
+          </Text>
+          <Text style={styles.environmentalValue}>
+            {score.solarElevationDeg.toFixed(1)}° solar
+          </Text>
+        </View>
+        <Text style={styles.environmentalNotice}>
+          {score.walkingConditions?.visibilityNotice || 'Ambient lighting conditions.'}
+        </Text>
       </View>
 
       {/* Missing Data / Gaps */}
@@ -108,10 +137,10 @@ const styles = StyleSheet.create({
   },
   titleContainer: {
     flex: 1,
-    marginRight: 8,
+    marginRight: 10,
   },
   title: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: '#F8FAFC',
   },
@@ -125,29 +154,30 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 8,
     alignItems: 'center',
-    minWidth: 64,
+    minWidth: 70,
   },
   badgeText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '800',
     color: '#FFFFFF',
   },
   badgeLabel: {
     fontSize: 9,
-    fontWeight: '700',
-    color: '#F8FAFC',
+    fontWeight: '600',
+    color: '#FFFFFF',
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   metricsContainer: {
-    marginVertical: 4,
+    gap: 10,
+    marginBottom: 10,
   },
   metricRow: {
-    marginBottom: 10,
+    gap: 4,
   },
   metricLabelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 4,
   },
   metricLabel: {
     fontSize: 12,
@@ -155,13 +185,13 @@ const styles = StyleSheet.create({
     color: '#CBD5E1',
   },
   metricValue: {
-    fontSize: 11,
-    fontWeight: '500',
+    fontSize: 12,
+    fontWeight: '600',
     color: '#94A3B8',
   },
   progressBarBackground: {
     height: 6,
-    backgroundColor: '#090D16',
+    backgroundColor: '#334155',
     borderRadius: 3,
     overflow: 'hidden',
   },
@@ -169,21 +199,49 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 3,
   },
-  missingContainer: {
-    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+  environmentalBox: {
+    backgroundColor: 'rgba(251, 191, 36, 0.08)',
+    borderColor: 'rgba(251, 191, 36, 0.25)',
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.25)',
-    padding: 10,
     borderRadius: 8,
+    padding: 10,
+    marginVertical: 6,
+  },
+  environmentalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  environmentalTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FBBF24',
+  },
+  environmentalValue: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FDE68A',
+  },
+  environmentalNotice: {
+    fontSize: 11,
+    color: '#FCD34D',
+    marginTop: 3,
+    lineHeight: 15,
+  },
+  missingContainer: {
     marginTop: 6,
-    marginBottom: 8,
+    padding: 8,
+    backgroundColor: '#0F172A',
+    borderRadius: 8,
+    gap: 4,
   },
   missingText: {
     fontSize: 11,
-    color: '#F59E0B',
-    lineHeight: 16,
+    color: '#94A3B8',
+    lineHeight: 15,
   },
   disclaimerContainer: {
+    marginTop: 10,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.06)',
     paddingTop: 8,
@@ -195,4 +253,3 @@ const styles = StyleSheet.create({
     lineHeight: 14,
   },
 });
-

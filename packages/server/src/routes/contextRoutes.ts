@@ -24,14 +24,14 @@ export async function registerContextRoutes(fastify: FastifyInstance) {
         timeoutMs = 8000,
       } = request.body || {};
 
-      if (!Array.isArray(coordinates) || coordinates.length === 0) {
+      if (!Array.isArray(coordinates) || coordinates.length < 2) {
         return reply.status(400).send({
           ok: false,
-          error: 'coordinates must be a non-empty array of [lon, lat] pairs',
+          error: 'coordinates must be a non-empty array of at least 2 [longitude, latitude] pairs',
         });
       }
 
-      // Safeguard against unbounded coordinates DoS payload
+      // Safeguard against unbounded coordinates DoS payload (WS-032)
       if (coordinates.length > 2000) {
         return reply.status(400).send({
           ok: false,
@@ -39,12 +39,21 @@ export async function registerContextRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Validate coordinate points
+      // Validate WGS-84 coordinate ranges (WS-031)
       for (const pt of coordinates) {
-        if (!Array.isArray(pt) || pt.length < 2 || !Number.isFinite(pt[0]) || !Number.isFinite(pt[1])) {
+        if (
+          !Array.isArray(pt) ||
+          pt.length < 2 ||
+          !Number.isFinite(pt[0]) ||
+          !Number.isFinite(pt[1]) ||
+          pt[0] < -180 ||
+          pt[0] > 180 ||
+          pt[1] < -90 ||
+          pt[1] > 90
+        ) {
           return reply.status(400).send({
             ok: false,
-            error: 'All coordinates must be finite numeric [longitude, latitude] pairs',
+            error: 'All coordinates must be finite numeric WGS-84 [longitude, latitude] pairs with longitude [-180, 180] and latitude [-90, 90]',
           });
         }
       }

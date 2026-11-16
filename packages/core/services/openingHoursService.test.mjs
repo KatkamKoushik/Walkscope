@@ -38,6 +38,13 @@ test('openingHoursService - timezone resolution from coordinates', async (t) => 
     assert.equal(resolveTimezoneForCoordinates(-0.1281, 51.5080), 'Europe/London');
   });
 
+  await t.test('resolves global coordinates accurately beyond pilot regions', () => {
+    assert.equal(resolveTimezoneForCoordinates(-87.6298, 41.8781), 'America/Chicago');
+    assert.equal(resolveTimezoneForCoordinates(139.6503, 35.6762), 'Asia/Tokyo');
+    assert.equal(resolveTimezoneForCoordinates(151.2093, -33.8688), 'Australia/Sydney');
+    assert.equal(resolveTimezoneForCoordinates(13.4050, 52.5200), 'Europe/Berlin');
+  });
+
   await t.test('resolves unmapped coordinates to UTC safely', () => {
     assert.equal(resolveTimezoneForCoordinates(0, 0), 'UTC');
     assert.equal(resolveTimezoneForCoordinates(NaN, NaN), 'UTC');

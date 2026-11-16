@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, 'feat/**']
+    branches: [main, 'feat/**', 'fix/**']
   pull_request:
-    branches: [main, 'feat/**']
+    branches: [main, 'feat/**', 'fix/**']
   merge_group:
   workflow_dispatch:
 
@@ -108,7 +108,7 @@ jobs:
         run: npm run typecheck
 
   unit-tests:
-    name: Unit & Stress Test Suite (229 Tests)
+    name: Domain & Gateway Unit Tests (211 Tests)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -128,8 +128,104 @@ jobs:
       - name: Clean install
         run: npm ci
 
-      - name: Run Monorepo Unit & Stress Tests
-        run: npm test
+      - name: Run Domain & Gateway Unit Tests
+        run: npm run test:unit
+
+  fuzz-hardening:
+    name: ReDoS & Parser Fuzz Hardening
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TZ: UTC
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Clean install
+        run: npm ci
+
+      - name: Run Fuzz & Security Invariant Hardening Tests
+        run: npm run test:fuzz
+
+  stress-concurrency:
+    name: High-Concurrency Gateway Stress & SLAs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TZ: UTC
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Clean install
+        run: npm ci
+
+      - name: Run High-Concurrency Burst & Cache Stampede Tests
+        run: npm run test:stress
+
+  storage-hardening:
+    name: SQLite Storage Hardening & Privacy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TZ: UTC
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Clean install
+        run: npm ci
+
+      - name: Run SQLite Concurrency & SQL Injection Neutralization Tests
+        run: npm run test:storage
+
+  golden-corridors:
+    name: Deterministic Golden Corridor Replay
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TZ: UTC
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Clean install
+        run: npm ci
+
+      - name: Run Deterministic Golden Corridor Validation
+        run: npm run test:golden
 
   mobile-health:
     name: Expo Doctor Health Check
@@ -193,6 +289,35 @@ jobs:
           persist-credentials: false
 
       - name: Repository Secret Scanning
-        uses: trufflesecurity/trufflehog@v3.88.5
+        uses: trufflesecurity/trufflehog@v3.99.9
         with:
           extra_args: --only-verified
+
+  playwright-e2e:
+    name: Playwright Browser & Geospatial E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Clean install
+        run: npm ci
+
+      - name: Build Fastify Server
+        run: npm run build:server
+
+      - name: Install Playwright Chromium with system dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright E2E & Browser Suite
+        run: npm run test:e2e
+

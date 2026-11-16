@@ -107,6 +107,10 @@ export const NavigateScreen: React.FC<NavigateScreenProps> = ({
   const locationSubRef = useRef<Location.LocationSubscription | null>(null);
   const lastValidGpsRef = useRef<{ latitude: number; longitude: number; timestamp: number } | null>(null);
   const consecutiveOffRouteCountRef = useRef(0);
+  const currentStepIndexRef = useRef(currentStepIndex);
+  useEffect(() => {
+    currentStepIndexRef.current = currentStepIndex;
+  }, [currentStepIndex]);
 
   // Setup live GPS tracking and maneuver advancement with pedestrian kinematic filtering
   useEffect(() => {
@@ -171,8 +175,9 @@ export const NavigateScreen: React.FC<NavigateScreenProps> = ({
             }
 
             // 4. Maneuver advancement based on proximity to next step point (within 25m)
-            if (steps.length > 0 && currentStepIndex < steps.length - 1) {
-              const targetStep = steps[currentStepIndex + 1];
+            const idx = currentStepIndexRef.current;
+            if (steps.length > 0 && idx < steps.length - 1) {
+              const targetStep = steps[idx + 1];
               const targetLocation = targetStep?.location; // [lon, lat]
               if (targetLocation && Array.isArray(targetLocation) && targetLocation.length >= 2) {
                 const targetLon = targetLocation[0];
@@ -203,7 +208,7 @@ export const NavigateScreen: React.FC<NavigateScreenProps> = ({
         locationSubRef.current = null;
       }
     };
-  }, [activeRoute, steps, currentStepIndex, coordinates]);
+  }, [activeRoute]);
 
   // Transparent Emergency Speed Dial
   const handleEmergencyCall = () => {

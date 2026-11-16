@@ -6,6 +6,8 @@ import {
   searchDestinations,
 } from '../services/geocodingService';
 import { activeRoutingProvider } from '../services/routingAdapter';
+import { formatRouteDistance, formatRouteDuration } from '../../../core/providers/routing/routeSteps';
+import { rankRouteAlternatives } from '../../../core/services/routeIntelligenceService';
 import type { ClientRouteResult } from '../../../core/providers/routing/clientRoutingService';
 import type { SavedJourney } from '../services/storageService';
 
@@ -110,14 +112,19 @@ export function useWalkingRoute(): UseWalkingRouteReturn {
       if (seq !== routeRequestSeq.current) return;
 
       setIsLoadingRoutes(false);
-      setRoutingResult(result);
 
       if (result.ok && result.routes.length > 0) {
-        setSelectedRouteId(result.routes[0].id);
-      } else if (result.status === 'NO_ROUTE_FOUND') {
-        setStatusMessage('No pedestrian walking route found between these locations.');
+        const ranked = rankRouteAlternatives(result.routes);
+        setRoutingResult({ ...result, routes: ranked });
+        const recommended = ranked.find((r: any) => r.isRecommended) || ranked[0];
+        setSelectedRouteId(recommended.id);
       } else {
-        setStatusMessage(result.message || 'Unable to calculate route.');
+        setRoutingResult(result);
+        if (result.status === 'NO_ROUTE_FOUND') {
+          setStatusMessage('No pedestrian walking route found between these locations.');
+        } else {
+          setStatusMessage(result.message || 'Unable to calculate route.');
+        }
       }
     },
     [origin, destination]
@@ -146,7 +153,7 @@ export function useWalkingRoute(): UseWalkingRouteReturn {
     }
   };
 
-  // Select Saved Journey
+  // Select Saved Journey with immediate offline polyline and navigation steps hydration
   const handleSelectSavedJourney = (saved: SavedJourney) => {
     setOrigin({
       title: saved.origin_name,
@@ -160,6 +167,34 @@ export function useWalkingRoute(): UseWalkingRouteReturn {
       latitude: saved.dest_lat,
       longitude: saved.dest_lon,
     });
+
+    if (saved.polyline_json) {
+      try {
+        const coords = JSON.parse(saved.polyline_json);
+        const steps = saved.steps_json ? JSON.parse(saved.steps_json) : [];
+        if (Array.isArray(coords) && coords.length > 0) {
+          const offlineRoute = {
+            id: saved.id,
+            profile: 'foot' as const,
+            distanceMeters: saved.distance_m,
+            durationSeconds: saved.duration_s,
+            distanceFormatted: formatRouteDistance(saved.distance_m),
+            durationFormatted: formatRouteDuration(saved.duration_s),
+            geometry: { type: 'LineString' as const, coordinates: coords },
+            turnsCount: steps.length,
+            steps,
+            provider: 'offline-saved',
+            retrievedAt: saved.created_at,
+          };
+          setRoutingResult({
+            ok: true,
+            routes: [offlineRoute],
+            status: 'SUCCESS',
+          });
+          setSelectedRouteId(saved.id);
+        }
+      } catch {}
+    }
   };
 
   return {

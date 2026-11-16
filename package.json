@@ -10,8 +10,13 @@
   "scripts": {
     "pretest": "npm run build:server",
     "test": "node --test",
+    "test:unit": "npm run build:server && node --test packages/core/providers/**/*.test.mjs packages/core/services/contextScoringService.test.mjs packages/core/services/navigationEngine.test.mjs packages/core/services/openingHoursService.test.mjs packages/core/services/routeIntelligenceService.test.mjs packages/core/services/twilightService.test.mjs packages/server/src/server.test.mjs packages/server/src/cache.test.mjs",
+    "test:fuzz": "node --test packages/core/services/fuzzHardening.test.mjs",
+    "test:stress": "npm run build:server && node --test packages/server/src/stress.test.mjs",
+    "test:storage": "node --test packages/mobile/src/services/storageService.test.mjs",
+    "test:golden": "node --test packages/core/fixtures/goldenFixtures.test.mjs",
+    "test:e2e": "npm run build:server && playwright test",
     "test:server": "npm run --workspace=@walking-companion/server build && node --test packages/server/src/*.test.mjs",
-    "test:stress": "npm run build:server && node --test packages/server/src/stress.test.mjs packages/core/services/fuzzHardening.test.mjs",
     "typecheck": "npm run typecheck:core && npm run typecheck:mobile && npm run typecheck:server",
     "typecheck:core": "tsc -p packages/core/tsconfig.json",
     "typecheck:mobile": "npm run --workspace=packages/mobile typecheck",
@@ -38,6 +43,7 @@
     "pbf": "^3.3.0"
   },
   "devDependencies": {
-    "eslint": "^10.13.0"
+    "@playwright/test": "^1.65.1",
+    "eslint": "^10.14.0"
   }
 }

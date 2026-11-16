@@ -6,6 +6,7 @@ import {
   calculateMajorRoadShare,
   evaluateVerifiedSupportPoints,
   computeRouteIntelligence,
+  rankRouteAlternatives,
   SPEED_PRESETS,
 } from './routeIntelligenceService.js';
 
@@ -141,7 +142,7 @@ test('routeIntelligenceService - verified support points evaluation', async (t) 
         verificationSource: 'Location Field Audit Report #2026-A12',
         evidenceUrl: 'https://example.gov/audits/2026-A12',
         verifiedAt: '2026-10-15T00:00:00Z',
-        expiresAt: '2026-11-15T00:00:00Z',
+        expiresAt: '2028-12-31T00:00:00Z',
       },
       {
         id: 'unconfirmed_kiosk',
@@ -153,7 +154,7 @@ test('routeIntelligenceService - verified support points evaluation', async (t) 
         verificationSource: '',
         evidenceUrl: '',
         verifiedAt: '2026-10-15T00:00:00Z',
-        expiresAt: '2026-11-15T00:00:00Z',
+        expiresAt: '2028-12-31T00:00:00Z',
       },
     ];
 
@@ -221,4 +222,67 @@ test('routeIntelligenceService - full reproducibility report', async () => {
   assert.ok(report.reproducibility.graph_version);
   assert.ok(report.reproducibility.departure_timestamp);
   assert.equal(report.roadShare.majorRoadPercent, 100);
+});
+
+test('routeIntelligenceService - rankRouteAlternatives with explainable trade-offs', async (t) => {
+  await t.test('ranks route alternatives and recommends the optimal pedestrian balance', () => {
+    const route1 = {
+      id: 'route-1',
+      distanceMeters: 1000,
+      durationSeconds: 720, // 12 min
+      turnsCount: 6,
+      steps: [
+        { distanceMeters: 600, highway: 'primary' },
+        { distanceMeters: 400, highway: 'secondary' },
+      ],
+    };
+
+    const route2 = {
+      id: 'route-2',
+      distanceMeters: 950,
+      durationSeconds: 700, // 11.6 min (fastest)
+      turnsCount: 3, // Fewest turns
+      steps: [
+        { distanceMeters: 700, highway: 'footway' },
+        { distanceMeters: 250, highway: 'residential' },
+      ],
+    };
+
+    const route3 = {
+      id: 'route-3',
+      distanceMeters: 1200,
+      durationSeconds: 960, // 16 min
+      turnsCount: 12,
+      steps: [
+        { distanceMeters: 1200, highway: 'residential' },
+      ],
+    };
+
+    const ranked = rankRouteAlternatives([route1, route2, route3]);
+    assert.equal(ranked.length, 3);
+
+    const r2 = ranked.find((r) => r.id === 'route-2');
+    assert.ok(r2);
+    assert.equal(r2.isRecommended, true);
+    assert.equal(r2.recommendationBadge, 'Recommended');
+    assert.match(r2.tradeoffTag, /Fastest|Footways|Direct/i);
+
+    const r3 = ranked.find((r) => r.id === 'route-3');
+    assert.ok(r3);
+    assert.equal(r3.isRecommended, false);
+    assert.equal(r3.recommendationBadge, 'Alternative');
+  });
+
+  await t.test('handles single route without throwing', () => {
+    const single = [{ id: 'solo', durationSeconds: 300, distanceMeters: 400 }];
+    const ranked = rankRouteAlternatives(single);
+    assert.equal(ranked.length, 1);
+    assert.equal(ranked[0].isRecommended, true);
+    assert.equal(ranked[0].recommendationBadge, 'Recommended');
+  });
+
+  await t.test('handles empty or malformed route array', () => {
+    assert.deepEqual(rankRouteAlternatives([]), []);
+    assert.deepEqual(rankRouteAlternatives(null), []);
+  });
 });

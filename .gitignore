@@ -24,6 +24,8 @@ window_dump.xml
 dist/
 build/
 *.tsbuildinfo
+test-results/
+playwright-report/
 
 # Mobile & Expo
 .expo/

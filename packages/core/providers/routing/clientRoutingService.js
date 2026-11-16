@@ -20,13 +20,10 @@ export function generateRouteSignature(
   durationSeconds = 0,
   profile = 'foot'
 ) {
-  const start = coordinates.length > 0 ? `${coordinates[0][0].toFixed(5)},${coordinates[0][1].toFixed(5)}` : '0,0';
-  const end = coordinates.length > 0 ? `${coordinates[coordinates.length - 1][0].toFixed(5)},${coordinates[coordinates.length - 1][1].toFixed(5)}` : '0,0';
-  const mid = coordinates.length > 2 ? `${coordinates[Math.floor(coordinates.length / 2)][0].toFixed(5)},${coordinates[Math.floor(coordinates.length / 2)][1].toFixed(5)}` : '';
-
-  // 32-bit FNV-1a hash
+  // Stable FNV-1a digest of full normalized route coordinates, profile, and metrics (WS-022)
   let hash = 2166136261;
-  const signature = `${profile}:${start}->${mid}->${end}|dist:${distanceMeters}|dur:${durationSeconds}|pts:${coordinates.length}`;
+  const geomSummary = (coordinates || []).map((c) => `${c[0].toFixed(5)},${c[1].toFixed(5)}`).join(';');
+  const signature = `${profile}:${geomSummary}|dist:${distanceMeters}|dur:${durationSeconds}|idx:${index}`;
   for (let i = 0; i < signature.length; i++) {
     hash ^= signature.charCodeAt(i);
     hash = Math.imul(hash, 16777619);

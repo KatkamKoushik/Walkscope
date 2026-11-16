@@ -117,6 +117,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <Text style={styles.wipeSubtext}>
               Immediately deletes all saved journeys, favorite routes, and search cache from on-device SQLite.
             </Text>
+            <Text style={styles.wipeNoticeText}>
+              Storage Disclosure: Cleared records are removed using SQLite DELETE and compacted with VACUUM. On mobile flash memory (eMMC/UFS), storage controller wear-leveling prevents cryptographic physical sector erasure.
+            </Text>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -225,6 +228,14 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 6,
     textAlign: 'center',
+  },
+  wipeNoticeText: {
+    fontSize: 9,
+    color: '#94A3B8',
+    marginTop: 6,
+    lineHeight: 13,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });
 

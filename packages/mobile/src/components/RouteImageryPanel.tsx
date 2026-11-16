@@ -20,6 +20,10 @@ export function RouteImageryPanel({ isLoading, result, onClose }: RouteImageryPa
         </TouchableOpacity>
       </View>
 
+      {(result as any)?.disclaimer && (
+        <Text style={styles.samplingDisclaimer}>{(result as any).disclaimer}</Text>
+      )}
+
       {isLoading ? (
         <View style={styles.imageryLoading}>
           <ActivityIndicator size="small" color="#38BDF8" />
@@ -123,6 +127,13 @@ const styles = StyleSheet.create({
   imageryClose: {
     color: '#94A3B8',
     fontSize: 11,
+  },
+  samplingDisclaimer: {
+    color: '#38BDF8',
+    fontSize: 10,
+    fontStyle: 'italic',
+    marginBottom: 8,
+    lineHeight: 14,
   },
   imageryLoading: {
     flexDirection: 'row',

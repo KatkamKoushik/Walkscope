@@ -18,26 +18,46 @@ export function RouteComparisonCards({
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.cardScroll}>
       {routes.map((route: any, index: number) => {
         const isSelected = route.id === (selectedRouteId || routes[0]?.id);
+        const badgeLabel = route.recommendationBadge || (route.isRecommended ? 'Recommended' : (index === 0 ? 'Recommended' : 'Alternative'));
+        const isRecommended = badgeLabel === 'Recommended';
+
         return (
           <TouchableOpacity
             key={route.id}
-            style={[styles.routeCard, isSelected && styles.selectedRouteCard]}
+            style={[
+              styles.routeCard,
+              isSelected && styles.selectedRouteCard,
+              isRecommended && styles.recommendedBorder,
+            ]}
             onPress={() => onSelectRoute(route.id)}
             activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityLabel={`Select Route ${index + 1}`}
+            accessibilityLabel={`Select Route ${index + 1}: ${badgeLabel}, ${route.durationFormatted}`}
             hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           >
             <View style={styles.cardBadge}>
-              <Text style={[styles.cardBadgeText, isSelected && styles.selectedBadgeText]}>
-                Route {index + 1} {index === 0 ? '• Recommended' : '• Alternative'}
+              <Text
+                style={[
+                  styles.cardBadgeText,
+                  isSelected && styles.selectedBadgeText,
+                  isRecommended && styles.recommendedBadgeText,
+                ]}
+              >
+                Route {index + 1} • {badgeLabel}
               </Text>
             </View>
             <View style={styles.metricsRow}>
               <Text style={styles.durationBig}>{route.durationFormatted}</Text>
               <Text style={styles.distanceSmall}>({route.distanceFormatted})</Text>
             </View>
-            <Text style={styles.turnsDetail}>{route.turnsCount} turn maneuvers</Text>
+            <Text style={styles.tradeoffTag}>
+              {route.tradeoffTag || `${route.turnsCount} turn maneuvers`}
+            </Text>
+            {route.tradeoffExplanation && (
+              <Text style={styles.tradeoffExplanation} numberOfLines={1}>
+                {route.tradeoffExplanation}
+              </Text>
+            )}
           </TouchableOpacity>
         );
       })}
@@ -57,13 +77,16 @@ const styles = StyleSheet.create({
     marginRight: 10,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.08)',
-    minWidth: 165,
-    minHeight: 76,
+    minWidth: 175,
+    minHeight: 88,
     justifyContent: 'center',
   },
   selectedRouteCard: {
     borderColor: '#38BDF8',
     backgroundColor: '#131C2E',
+  },
+  recommendedBorder: {
+    borderColor: 'rgba(56, 189, 248, 0.4)',
   },
   cardBadge: {
     marginBottom: 4,
@@ -76,6 +99,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   selectedBadgeText: {
+    color: '#38BDF8',
+  },
+  recommendedBadgeText: {
     color: '#38BDF8',
   },
   metricsRow: {
@@ -93,10 +119,16 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#94A3B8',
   },
-  turnsDetail: {
+  tradeoffTag: {
     fontSize: 11,
-    color: '#64748B',
-    marginTop: 3,
+    fontWeight: '600',
+    color: '#38BDF8',
+    marginTop: 4,
+  },
+  tradeoffExplanation: {
+    fontSize: 10,
+    color: '#94A3B8',
+    marginTop: 2,
+    maxWidth: 160,
   },
 });
-

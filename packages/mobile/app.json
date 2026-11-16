@@ -12,6 +12,7 @@
     },
     "android": {
       "package": "com.walkscope.companion",
+      "allowBackup": false,
       "adaptiveIcon": {
         "backgroundColor": "#0F172A",
         "foregroundImage": "./assets/android-icon-foreground.png",

@@ -1,5 +1,6 @@
 # Multi-stage Dockerfile for Walkscope Geospatial Gateway
-FROM node:20-alpine AS builder
+# Uses Node 22 LTS to align with monorepo CI and active Node LTS support lifecycle
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -19,8 +20,8 @@ COPY packages/server ./packages/server
 # Build core and server
 RUN npm run build:server
 
-# Production image
-FROM node:20-alpine AS runner
+# Production image (Node 22 LTS)
+FROM node:22-alpine AS runner
 
 WORKDIR /app
 ENV NODE_ENV=production

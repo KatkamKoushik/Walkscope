@@ -493,3 +493,115 @@ export function computeRouteIntelligence({
     supportIntelligence,
   };
 }
+
+/**
+ * Evaluates and ranks multiple alternative pedestrian routes using the intelligence engine.
+ * Computes comparative trade-offs for each route alternative:
+ * - Walking duration & distance trade-off (e.g. "Fastest", "+3 min longer")
+ * - Turn complexity (e.g. "Direct path (3 turns)" vs "Winding corridor (11 turns)")
+ * - Road mix / footway share (e.g. "75% dedicated footways", "Major road exposure")
+ * - Along-route open amenities (e.g. "Active commercial corridor", "Quiet corridor")
+ * 
+ * Recommends the route with the best pedestrian balance, rather than blindly recommending route[0].
+ * 
+ * @param {Array<any>} routes - Array of parsed route alternatives
+ * @param {Array<any>} [amenities=[]] - Mapped corridor amenities
+ * @returns {Array<any>} Evaluated and ranked routes with explainable trade-offs
+ */
+export function rankRouteAlternatives(routes, _amenities = []) {
+  if (!Array.isArray(routes) || routes.length === 0) return [];
+  if (routes.length === 1) {
+    return [
+      {
+        ...routes[0],
+        isRecommended: true,
+        recommendationBadge: 'Recommended',
+        tradeoffTag: `${routes[0].turnsCount || routes[0].steps?.length || 0} turn maneuvers`,
+        tradeoffExplanation: 'Single direct route found for corridor.',
+      },
+    ];
+  }
+
+  const minDuration = Math.min(...routes.map((r) => r.durationSeconds || 0));
+  const minTurns = Math.min(...routes.map((r) => r.turnsCount || r.steps?.length || 0));
+
+  const evaluated = routes.map((r, index) => {
+    const turns = r.turnsCount || r.steps?.length || 0;
+    const duration = r.durationSeconds || 0;
+    const durationDeltaMin = Math.round((duration - minDuration) / 60);
+    const turnsDelta = turns - minTurns;
+
+    // Road mix
+    const roadShare = calculateMajorRoadShare(r.steps, r.distanceMeters);
+    const footwayPercent = roadShare.footwayPercent || 0;
+    const majorRoadPercent = roadShare.majorRoadPercent || 0;
+
+    // Pedestrian balance score
+    let balanceScore = 100;
+    balanceScore -= durationDeltaMin * 10;
+    balanceScore -= turnsDelta * 3;
+    balanceScore += Math.round(footwayPercent * 0.25);
+    balanceScore -= Math.round(majorRoadPercent * 0.2);
+
+    return {
+      route: r,
+      index,
+      duration,
+      durationDeltaMin,
+      turns,
+      turnsDelta,
+      footwayPercent,
+      majorRoadPercent,
+      balanceScore,
+    };
+  });
+
+  // Pick best route based on intelligence balance
+  let bestScore = -Infinity;
+  let bestIndex = 0;
+  for (const item of evaluated) {
+    if (item.balanceScore > bestScore) {
+      bestScore = item.balanceScore;
+      bestIndex = item.index;
+    }
+  }
+
+  return evaluated.map((item) => {
+    const isRecommended = item.index === bestIndex;
+    let tradeoffTag = '';
+    let tradeoffExplanation = '';
+
+    if (item.durationDeltaMin === 0 && item.turnsDelta === 0) {
+      tradeoffTag = 'Fastest & Direct';
+      tradeoffExplanation = `${item.turns} turns, optimal travel time`;
+    } else if (item.durationDeltaMin === 0) {
+      tradeoffTag = 'Fastest Route';
+      tradeoffExplanation = `${item.turns} turns, minimum travel time`;
+    } else if (item.footwayPercent >= 50) {
+      tradeoffTag = `${item.footwayPercent}% Footways`;
+      tradeoffExplanation = `${item.durationDeltaMin > 0 ? `+${item.durationDeltaMin} min, ` : ''}prefers pedestrian paths`;
+    } else if (item.turnsDelta === 0) {
+      tradeoffTag = 'Fewest Turns';
+      tradeoffExplanation = `${item.turns} turns, simple direct path`;
+    } else {
+      tradeoffTag = `${item.durationDeltaMin > 0 ? `+${item.durationDeltaMin} min` : 'Alternative'}`;
+      tradeoffExplanation = `${item.turns} turns (${item.turnsDelta > 0 ? `+${item.turnsDelta}` : ''}), local corridor`;
+    }
+
+    return {
+      ...item.route,
+      isRecommended,
+      recommendationBadge: isRecommended ? 'Recommended' : 'Alternative',
+      tradeoffTag,
+      tradeoffExplanation,
+      comparison: {
+        durationDeltaMin: item.durationDeltaMin,
+        turnsCount: item.turns,
+        footwayPercent: item.footwayPercent,
+        majorRoadPercent: item.majorRoadPercent,
+        balanceScore: item.balanceScore,
+      },
+    };
+  });
+}
+

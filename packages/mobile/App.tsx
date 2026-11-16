@@ -47,7 +47,7 @@ export default function App() {
     showImagery,
     setShowImagery,
     checkStreetImagery,
-  } = useStreetImagery(origin);
+  } = useStreetImagery(origin, activeRoute);
 
   const {
     daylightEstimate,
@@ -77,10 +77,12 @@ export default function App() {
         duration_s: activeRoute.durationSeconds,
         context_score: contextScore?.totalScore || 0,
         is_favorite: 0,
+        polyline_json: JSON.stringify(activeRoute.geometry?.coordinates || []),
+        steps_json: JSON.stringify(activeRoute.steps || []),
       });
       Alert.alert(
         'Corridor Saved',
-        'This walking route is saved to your local on-device SQLite database.'
+        'This walking route, complete with offline map polyline and navigation maneuvers, is saved to your local device database.'
       );
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to save route locally.');

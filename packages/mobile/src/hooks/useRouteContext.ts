@@ -49,7 +49,8 @@ export function useRouteContext(
         // 1. Context Coverage Score
         const score = calculateContextCoverage({
           distanceMeters: activeRoute.distanceMeters,
-          amenities: amenities.features,
+          amenities: amenities.error ? null : amenities.features,
+          amenityStatus: amenities.error ? 'UNAVAILABLE' : 'AVAILABLE',
           solar: {
             state: daylightEstimate?.solarState || 'UNKNOWN',
             elevationDeg: daylightEstimate?.solarElevationDeg || 0,
@@ -57,6 +58,10 @@ export function useRouteContext(
           imagery: {
             available: imageryResult?.hasImagery || false,
             capturedAt: imageryResult?.images?.[0]?.captureDate || undefined,
+            coverageRatio: (imageryResult as any)?.coverageRatio ?? (imageryResult?.hasImagery ? 1.0 : 0.0),
+            sampledCheckpoints: (imageryResult as any)?.sampledCheckpoints ?? 1,
+            availableCheckpoints: (imageryResult as any)?.availableCheckpoints ?? (imageryResult?.hasImagery ? 1 : 0),
+            samplingMode: (imageryResult as any)?.samplingMode || 'origin_only',
           },
         });
         setContextScore(score);

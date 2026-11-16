@@ -11,6 +11,8 @@
  * - Venue-specific local timezone is explicitly resolved from coordinates or parameter.
  */
 
+import tzlookup from 'tz-lookup';
+
 export const OPENING_HOURS_PARSER_VERSION = '1.1.0-timezone-aware';
 
 const DAY_MAP = {
@@ -34,37 +36,26 @@ const DAY_NAMES = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
  * @returns {string} IANA Timezone Identifier (e.g. 'Asia/Kolkata', 'Europe/London')
  */
 export function resolveTimezoneForCoordinates(lon, lat) {
-  if (typeof lon !== 'number' || typeof lat !== 'number' || !Number.isFinite(lon) || !Number.isFinite(lat)) {
+  if (
+    typeof lon !== 'number' ||
+    typeof lat !== 'number' ||
+    !Number.isFinite(lon) ||
+    !Number.isFinite(lat) ||
+    lat < -90 ||
+    lat > 90 ||
+    lon < -180 ||
+    lon > 180
+  ) {
     return 'UTC';
   }
 
-  // India & Subcontinent
-  if (lon >= 68.0 && lon <= 97.5 && lat >= 6.5 && lat <= 37.5) {
-    return 'Asia/Kolkata';
+  try {
+    const tz = tzlookup(lat, lon);
+    if (!tz || tz === 'Etc/GMT' || tz === 'Etc/UTC') return 'UTC';
+    return tz;
+  } catch {
+    return 'UTC';
   }
-
-  // United Kingdom & Ireland
-  if (lon >= -10.5 && lon <= 2.0 && lat >= 49.5 && lat <= 61.0) {
-    return 'Europe/London';
-  }
-
-  // Western & Central Europe
-  if (lon >= 2.0 && lon <= 16.0 && lat >= 42.0 && lat <= 55.0) {
-    return 'Europe/Paris';
-  }
-
-  // US East Coast
-  if (lon >= -80.0 && lon <= -70.0 && lat >= 38.0 && lat <= 45.0) {
-    return 'America/New_York';
-  }
-
-  // US West Coast
-  if (lon >= -125.0 && lon <= -114.0 && lat >= 32.0 && lat <= 42.0) {
-    return 'America/Los_Angeles';
-  }
-
-  // Default to UTC for unmapped coordinates
-  return 'UTC';
 }
 
 const FORMATTER_CACHE = new Map();

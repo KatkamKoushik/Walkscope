@@ -2,14 +2,19 @@
 
 > Transparent, privacy-first pedestrian walking context and route companion.
 
-[![CI](https://github.com/KatkamKoushik/Walkscope/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/KatkamKoushik/Walkscope/actions/workflows/ci.yml)
+[![CI](https://github.com/KatkamKoushik/Walkscope/actions/workflows/ci.yml/badge.svg)](https://github.com/KatkamKoushik/Walkscope/actions/workflows/ci.yml)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-22.x%20LTS-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
-[![Fastify](https://img.shields.io/badge/Fastify-5.12-000000?style=flat-square&logo=fastify&logoColor=white)](https://fastify.dev/)
+[![Fastify](https://img.shields.io/badge/Fastify-5.12.8-000000?style=flat-square&logo=fastify&logoColor=white)](https://fastify.dev/)
 [![React Native](https://img.shields.io/badge/React%20Native-0.88.1-61DAFB?style=flat-square&logo=react&logoColor=black)](https://reactnative.dev/)
 [![Expo](https://img.shields.io/badge/Expo-58.0-000020?style=flat-square&logo=expo&logoColor=white)](https://expo.dev/)
-[![Docker](https://img.shields.io/badge/Docker-Supported-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
-[![Tests](https://img.shields.io/badge/Tests-229%2F229%20Passing-brightgreen?style=flat-square)](https://nodejs.org/api/test.html)
+[![ESLint](https://img.shields.io/badge/ESLint-10.14-4B32C3?style=flat-square&logo=eslint&logoColor=white)](https://eslint.org/)
+[![Tests](https://img.shields.io/badge/Tests-253%2F253%20Passing-brightgreen?style=flat-square)](https://nodejs.org/api/test.html)
+[![Stress & Fuzz](https://img.shields.io/badge/Stress%20%26%20Fuzz-13%20CI%20Jobs-success?style=flat-square&logo=shield)](.github/workflows/ci.yml)
+[![Playwright](https://img.shields.io/badge/Playwright-11%20E2E%20Tests-45ba4b?style=flat-square&logo=playwright&logoColor=white)](tests/e2e/)
+[![Telemetry](https://img.shields.io/badge/Telemetry-Zero%20External-success?style=flat-square)](SECURITY.md)
+[![Accessibility](https://img.shields.io/badge/Accessibility-WCAG%202.1%20AA-blue?style=flat-square)](ACCESSIBILITY.md)
+[![Docker](https://img.shields.io/badge/Docker-Supported-2496ED?style=flat-square&logo=docker&logoColor=white)](docker-compose.yml)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 
 ---
@@ -112,13 +117,15 @@ flowchart LR
     VenueGaps --> EvidenceDrawer
 ```
 
-### Context Breakdown
+### Context Breakdown & Scoring Model
 
-| Component | Metric Weight | Measurement Criteria | Disclosed Limitations |
+Walkscope strictly decouples **Information Coverage** (verifiable data completeness) from **Walking Conditions** (dynamic ambient lighting), ensuring a route's data density score is mathematically identical at noon and midnight:
+
+| Dimension | Metric Weight / Representation | Measurement Criteria | Disclosed Limitations |
 | :--- | :--- | :--- | :--- |
-| **Mapped Amenities** | 0 to 40 Points | Density of mapped transit, emergency, services, and lighting within a 120-meter corridor around the route polyline. | Tagged as `mapped_unverified`; does not confirm whether facilities are operational, open, or staffed now. |
-| **Solar Daylight** | 0 to 30 Points | Astronomical solar elevation angle calculated via standard NOAA solar position equations. Missing data evaluates to `UNKNOWN`. | Estimates natural solar illumination only; does not measure physical streetlights, tree canopy, or weather conditions. |
-| **Street Imagery** | 0 to 30 Points | Coverage from open street-level imagery providers (Panoramax / Mapillary) with capture timestamps. | Surfaces capture date and 360-degree vs. flat perspective; absence of imagery is marked as missing data. |
+| **Information Coverage: Mapped Amenities** | 0 to 50 Points | Density of mapped transit, emergency, services, and lighting within a 120-meter corridor around the route polyline. | Tagged as `mapped_unverified`; does not confirm whether facilities are operational or staffed. Upstream API errors report `Incomplete Data` rather than an empty corridor score. |
+| **Information Coverage: Street Imagery** | 0 to 50 Points | Checkpoint sampling along corridor (0%, 25%, 50%, 75%, 100%) from open street-level imagery providers (Panoramax / Mapillary). | Surfaces capture dates and 360° vs. flat perspective; absence of imagery is marked as missing data. Pre-route search is explicitly qualified as "near origin". |
+| **Walking Conditions: Ambient Solar Illumination** | Independent Dimension (`daylight`, `twilight`, `night`) | Astronomical solar elevation angle calculated via NOAA solar position equations with high-precision `tz-lookup` IANA timezone mapping. | Estimates natural solar illumination only; does not measure physical streetlights, tree canopy, or weather conditions. Decoupled from Information Coverage. |
 
 ### Route Context Intelligence Metrics
 
@@ -215,18 +222,23 @@ walkscope/
 
 ## 7. Verification and Quality Gates
 
-The project maintains a zero-tolerance policy for type errors, lint warnings, test regressions, dependency vulnerabilities, and secret leaks. The CI pipeline runs **8 parallel automated jobs** on every push and merge group:
+The project maintains a zero-tolerance policy for type errors, lint warnings, test regressions, dependency vulnerabilities, and secret leaks. The CI pipeline runs **13 parallel automated jobs** on every push and pull request:
 
 | CI Job | Scope / Tool | Checks Performed | Status |
 | :--- | :--- | :--- | :--- |
-| **`Code Quality & Lint`** | ESLint 8.57 | Static syntax, dead code, import boundaries across `packages/core` and `packages/server`. | **Passing (0 warnings)** |
-| **`TruffleHog Secret Scanning`** | TruffleHog v3.88.5 | High-entropy token detection, private keys, API credentials across git history. | **Passing (0 leaks)** |
+| **`Code Quality & Lint`** | ESLint 10.14 | Static syntax, dead code, import boundaries across `packages/core` and `packages/server`. | **Passing (0 warnings)** |
+| **`TruffleHog Secret Scanning`** | TruffleHog v3.99.9 | High-entropy token detection, private keys, API credentials across git history. | **Passing (0 leaks)** |
 | **`Dependency Audit & Supply Chain`** | `npm audit`, `npm ci --dry-run` | High/critical CVE audit and frozen package lockfile consistency. | **Passing (0 vulnerabilities)** |
 | **`Repository Hygiene & Integrity`** | Shell hygiene gate | Merge conflict markers, uncommitted `.env` files, `.DS_Store`, and temporary test artifacts. | **Passing (Clean)** |
 | **`Gateway Production Build`** | TypeScript `tsc` | Multi-workspace compilation and verification of `/dist` runtime entrypoints. | **Passing (Built)** |
-| **`Unit & Stress Test Suite`** | Node.js Test Runner | Complete 34-suite battery (229 tests) covering routing, daylight, opening hours, intelligence, deterministic navigation, SQLite, ReDoS fuzzing, and 100-burst concurrency stress. | **Passing (229/229 Passed)** |
 | **`TypeScript Static Analysis`** | TypeScript 5.3+ | Strict cross-monorepo type checking across `core`, `mobile`, and `server`. | **Passing (0 errors)** |
-| **`Expo Doctor Health Check`** | `@expo/doctor` | React Native 0.88.1, Expo 58 compatibility, peer dependency resolution, native plugins. | **Passing (All checks passed)** |
+| **`Domain & Gateway Unit Tests`** | Node.js Test Runner | 211 unit tests covering routing, daylight, opening hours, intelligence, and gateway endpoints. | **Passing (211/211 Passed)** |
+| **`ReDoS & Parser Fuzz Hardening`** | Invariant Fuzz Harness | 11 fuzz suites testing 500+ ReDoS traps, 5,000-char payloads, emojis, and degenerate polylines. | **Passing (11/11 Passed)** |
+| **`High-Concurrency Stress & SLAs`** | Gateway Stress Harness | 100-burst SLA ($p_{95} < 250\text{ms}$), 50-concurrency cache stampede deduplication, rate limit shield. | **Passing (6/6 Passed)** |
+| **`SQLite Storage Hardening`** | SQLite Concurrency Harness | 50 parallel burst writes, SQL injection attacks, NaN/out-of-range bounds sanitization. | **Passing (12/12 Passed)** |
+| **`Golden Corridor Replay`** | Deterministic Replay Engine | Zero-network deterministic replay for Bengaluru MG Road and London Westminster corridors. | **Passing (2/2 Passed)** |
+| **`Expo Doctor Health Check`** | `@expo/doctor` | React Native 0.88.1, Expo SDK 58 compatibility, peer dependency resolution, native plugins. | **Passing (20/20 Passed)** |
+| **`Playwright Browser & Geospatial E2E Tests`** | Playwright Chromium | 11 browser & contract tests: mobile viewport (390x844), >=48px touch targets, zero console errors, DOM stability & memory boundedness, and OWASP API security. | **Passing (11/11 Passed)** |
 
 ### Local Verification Commands
 
@@ -237,8 +249,16 @@ npm run typecheck
 # Code quality linting
 npm run lint
 
-# Complete unit, fuzz, and stress test battery (229 tests)
+# Complete unit, fuzz, stress, and golden test battery (242 tests)
 npm test
+
+# Specialized hardening and stress suites
+npm run test:unit       # 211 domain and gateway unit tests
+npm run test:fuzz       # ReDoS fuzzing and geometric invariants
+npm run test:stress     # 100-burst concurrency and cache stampede SLAs
+npm run test:storage    # SQLite concurrency and SQL injection resistance
+npm run test:golden     # Deterministic corridor replay fixtures
+npm run test:e2e        # 11 Playwright browser, accessibility, & E2E tests
 
 # Mobile ecosystem health
 cd packages/mobile && npx expo-doctor
@@ -267,7 +287,7 @@ npm ci
 # Run static typecheck across all packages
 npm run typecheck
 
-# Execute the complete offline unit & stress test suite (229 tests)
+# Execute the complete offline unit & stress test suite (242 tests)
 npm test
 ```
 
@@ -286,10 +306,14 @@ npm run start:server
 
 #### Option B: Docker Compose (Gateway + Redis 7 + PostGIS 16)
 ```bash
+# Copy the environment template and set your credentials
+cp .env.example .env
+
+# Start containerized infrastructure
 docker compose up -d
 ```
 
-Verify that the gateway is operational and check live memory telemetry:
+Verify that the gateway is operational and check live multi-tier cache telemetry:
 ```bash
 curl http://localhost:3000/health
 ```
@@ -302,6 +326,12 @@ Expected response:
   "version": "1.0.0",
   "uptime": 12,
   "cacheEntries": 0,
+  "cacheTier": "in-memory-l1",
+  "cacheStatus": {
+    "tier": "in-memory-l1",
+    "redisConnected": false,
+    "l1Entries": 0
+  },
   "memory": {
     "heapUsedMb": 28.45,
     "heapTotalMb": 34.22,
@@ -419,9 +449,46 @@ Walkscope implements defensive engineering controls derived from the **Productio
 ### 6. Offline Geocoding & Route Continuity Fallback (Section 18)
 - Multi-tier resilience: In offline environments where the gateway and upstream Photon are unreachable, the search subsystem automatically queries built-in benchmark corridors and matches cached local search history stored in on-device SQLite.
 
+### 7. Multi-Tier Cache & Secrets Parameterization (Sections 4 & 5)
+- **Multi-Tier Cache Gateway**: Pluggable L1 (in-memory LRU) and L2 (Redis) caching architecture with automated non-blocking graceful fallback when Redis is unreachable. Live cache status (`in-memory-l1` vs `multi-tier-redis-l2`) is exposed via `/health`.
+- **Zero-Port Leakage & Secret Sanitization**: Docker Compose binds PostgreSQL (`127.0.0.1:5432`) and Redis (`127.0.0.1:6379`) strictly to loopback, eliminating public 0.0.0.0 exposure. Credentials are parameterized via `.env` (template in `.env.example`) with zero hardcoded defaults.
+
+### 8. Mathematical Integrity: Information Coverage vs. Solar Ambient (Section 7)
+- **Mathematical Decoupling**: Pure Information Coverage Score (0–100%) measures mapped data completeness (amenity density + corridor street imagery). Ambient solar illumination is reported as an independent dimension, ensuring nighttime never reduces data availability scores.
+- **Honest Missing Data Disclosures**: Upstream amenity service failures report `amenityStatus: 'UNAVAILABLE'` and `Incomplete Data`, preventing API outages from being misreported as zero amenities.
+
+### 9. Multi-Checkpoint Street Imagery Sampling
+- **Corridor Sampling**: Replaced single-point origin queries with 5 equidistant corridor checkpoints (0%, 25%, 50%, 75%, 100%) computing true sampled corridor coverage ratio. Pre-route searches are explicitly labeled "Imagery near starting point (origin only)".
+
+### 10. Intelligent Alternative Route Ranking
+- **Multi-Alternative Analysis**: Ranks all alternative pedestrian routes by evaluating travel time, turns, footway share, and major road mix, surfacing actionable trade-offs rather than arbitrarily labeling route 0 as recommended.
+
+### 11. Offline Route Hydration & OWASP MASVS Storage Transparency
+- **Full Route Persistence**: Local SQLite `saved_journeys` persists complete `polyline_json` and `steps_json`, allowing fully offline navigation re-hydration and turn guidance without network access.
+- **Flash Storage Wear-Leveling Disclosures**: Clear documentation that SQLite `DELETE` and `VACUUM` operations clear application pointers but do not guarantee physical cryptographic flash cell erasure due to flash storage wear-leveling (OWASP MASVS-STORAGE).
+
 ---
 
-## 12. Attribution & Open Data Licenses
+## 12. Prior Work vs. Hackathon Additions (WS-010 Transparency Disclosure)
+
+In adherence to transparency and hackathon eligibility rules, the distinction between pre-existing work and hackathon contributions is explicitly outlined:
+
+- **Pre-existing Repository Baseline**:
+  - Initial repository layout and basic MapLibre mobile wrapper.
+  - Basic single-route OSRM fetch and initial Overpass client skeleton.
+- **Hackathon Additions & Production Implementation**:
+  - **Route Context Intelligence Engine**: Full implementation of along-route projection, ETA-projected opening hours with overnight span handling, road mix calculation, and independent verified support registry.
+  - **Alternative Route Ranking Engine**: Multi-alternative comparative evaluation and trade-off synthesis (`rankRouteAlternatives`).
+  - **Scoring Architecture Redesign**: Decoupled Information Coverage (0–100% data density) from solar daylight, differentiated retrieval errors from empty corridors.
+  - **Multi-Checkpoint Imagery Sampling**: 5-point corridor sampling along route polylines.
+  - **Multi-Tier Cache & Infrastructure Hardening**: Redis L2 integration, Fastify `/health/ready` & `/health/live` endpoints, Docker network isolation, and `.env` parameterization.
+  - **Offline Route Hydration & Privacy**: Complete polyline and step persistence in SQLite with OWASP MASVS disclosures.
+  - **Deterministic Golden Corridors**: Permitted, sanitized test fixtures for Bengaluru MG Road and London Westminster.
+  - **Defensive Engineering & Quality Gates**: 242 automated tests (36 suites), 100-burst concurrency stress tests, ReDoS fuzzing, 0 lint warnings, 0 type errors, and 100% Expo Doctor check pass rate.
+
+---
+
+## 13. Attribution & Open Data Licenses
 
 Walkscope is powered by open data communities. All upstream licenses and attribution requirements are strictly preserved:
 
@@ -433,6 +500,17 @@ Walkscope is powered by open data communities. All upstream licenses and attribu
 
 ---
 
-## 13. License
+## 14. Community Standards & Governance
+
+Walkscope is maintained according to open-source community standards:
+
+- **[Code of Conduct](CODE_OF_CONDUCT.md)**: Contributor Covenant v2.1 code of conduct.
+- **[Contributing Guide](CONTRIBUTING.md)**: Development guidelines, monorepo architecture, and local quality gates.
+- **[Security Policy](SECURITY.md)**: Vulnerability disclosure procedure and defensive architecture principles.
+- **[Accessibility Statement](ACCESSIBILITY.md)**: WCAG 2.1 AA alignment, high-contrast OLED mode, and TalkBack/VoiceOver navigation.
+
+---
+
+## 15. License
 
 This project is licensed under the [MIT License](LICENSE).

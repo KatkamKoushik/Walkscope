@@ -1,0 +1,126 @@
+{
+  "corridorId": "london_westminster_to_covent_garden",
+  "name": "London Westminster to Covent Garden Corridor",
+  "provenance": {
+    "source": "OpenStreetMap contributors (ODbL) & Panoramax (CC-BY-SA 4.0)",
+    "capturedDate": "2026-10-31T00:00:00Z",
+    "isSanitizedDemoFixture": true,
+    "disclaimer": "Recorded offline demo fixture for jury replay. Demonstrates verifiable deterministic intelligence without external network dependence."
+  },
+  "origin": {
+    "title": "Westminster Underground Station",
+    "latitude": 51.5014,
+    "longitude": -0.1248
+  },
+  "destination": {
+    "title": "Covent Garden Piazza",
+    "latitude": 51.5117,
+    "longitude": -0.1228
+  },
+  "route": {
+    "distanceMeters": 1420,
+    "durationSeconds": 1140,
+    "geometry": {
+      "type": "LineString",
+      "coordinates": [
+        [-0.1248, 51.5014],
+        [-0.1261, 51.5042],
+        [-0.1275, 51.5074],
+        [-0.1250, 51.5098],
+        [-0.1228, 51.5117]
+      ]
+    },
+    "steps": [
+      {
+        "distanceMeters": 350,
+        "highway": "primary",
+        "mode": "walking",
+        "name": "Parliament Street",
+        "instruction": "Head north on Parliament Street"
+      },
+      {
+        "distanceMeters": 420,
+        "highway": "primary",
+        "mode": "walking",
+        "name": "Whitehall",
+        "instruction": "Continue onto Whitehall"
+      },
+      {
+        "distanceMeters": 320,
+        "highway": "tertiary",
+        "mode": "walking",
+        "name": "Strand",
+        "instruction": "Turn right onto Strand"
+      },
+      {
+        "distanceMeters": 330,
+        "highway": "pedestrian",
+        "mode": "walking",
+        "name": "Southampton Street",
+        "instruction": "Turn left onto Southampton Street"
+      }
+    ]
+  },
+  "amenities": [
+    {
+      "id": "node/201",
+      "name": "Westminster Tube Station",
+      "category": "transit",
+      "coordinates": [-0.1248, 51.5014],
+      "tags": {
+        "railway": "subway_entrance",
+        "opening_hours": "05:00-00:30"
+      }
+    },
+    {
+      "id": "node/202",
+      "name": "Charing Cross Police Station",
+      "category": "emergency",
+      "coordinates": [-0.1268, 51.5082],
+      "tags": {
+        "amenity": "police",
+        "opening_hours": "24/7"
+      }
+    },
+    {
+      "id": "node/203",
+      "name": "Covent Garden Market Pharmacy",
+      "category": "services",
+      "coordinates": [-0.1229, 51.5115],
+      "tags": {
+        "amenity": "pharmacy",
+        "opening_hours": "Mo-Sa 09:00-19:00"
+      }
+    }
+  ],
+  "imagery": {
+    "hasCoverage": true,
+    "coverageRatio": 1.0,
+    "sampledCheckpoints": 5,
+    "availableCheckpoints": 5,
+    "samplingMode": "corridor_checkpoints",
+    "images": [
+      {
+        "id": "panoramax_img_lon_01",
+        "latitude": 51.5014,
+        "longitude": -0.1248,
+        "captureDate": "2026-04-18T14:15:00Z",
+        "is360Panorama": true,
+        "thumbUrl": "https://api.panoramax.xyz/records/lon01/thumb.jpg",
+        "fullUrl": "https://api.panoramax.xyz/records/lon01/full.jpg",
+        "attribution": "Panoramax contributors (CC-BY-SA 4.0)"
+      }
+    ]
+  },
+  "goldenExpected": {
+    "totalVenuesCount": 2,
+    "totalDistanceMeters": 1420,
+    "informationCoverageScore": 53,
+    "roadShare": {
+      "majorRoadPercent": 77,
+      "footwayPercent": 23,
+      "localRoadPercent": 0,
+      "otherPercent": 0
+    }
+  }
+}

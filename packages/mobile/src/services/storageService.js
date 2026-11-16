@@ -47,7 +47,9 @@ export async function initSchema(db) {
       duration_s REAL NOT NULL,
       context_score REAL NOT NULL,
       is_favorite INTEGER DEFAULT 0,
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      polyline_json TEXT,
+      steps_json TEXT
     );
 
     CREATE TABLE IF NOT EXISTS recent_searches (
@@ -59,6 +61,13 @@ export async function initSchema(db) {
       created_at TEXT NOT NULL
     );
   `);
+
+  try {
+    await db.execAsync(`ALTER TABLE saved_journeys ADD COLUMN polyline_json TEXT;`);
+  } catch {}
+  try {
+    await db.execAsync(`ALTER TABLE saved_journeys ADD COLUMN steps_json TEXT;`);
+  } catch {}
 }
 
 /**
@@ -81,11 +90,13 @@ export async function saveJourney(journey) {
   const safeDurS = Math.max(0, Number.isFinite(journey.duration_s) ? journey.duration_s : 0);
   const safeScore = Math.max(0, Math.min(100, Number.isFinite(journey.context_score) ? journey.context_score : 0));
   const safeFav = journey.is_favorite === 1 ? 1 : 0;
+  const safePolyline = journey.polyline_json ? String(journey.polyline_json) : null;
+  const safeSteps = journey.steps_json ? String(journey.steps_json) : null;
 
   await db.runAsync(
     `INSERT OR REPLACE INTO saved_journeys 
-      (id, title, origin_name, origin_lat, origin_lon, dest_name, dest_lat, dest_lon, distance_m, duration_s, context_score, is_favorite, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, title, origin_name, origin_lat, origin_lon, dest_name, dest_lat, dest_lon, distance_m, duration_s, context_score, is_favorite, created_at, polyline_json, steps_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       safeId,
       safeTitle,
@@ -100,6 +111,8 @@ export async function saveJourney(journey) {
       safeScore,
       safeFav,
       createdAt,
+      safePolyline,
+      safeSteps,
     ]
   );
 }
@@ -175,8 +188,16 @@ export async function getRecentSearches(limit = 5) {
 }
 
 /**
- * 1-Tap Hard Wipe: permanently deletes all local journey records,
- * search history, and runs SQLite VACUUM.
+ * 1-Tap Hard Wipe: removes all local journey records, recent searches,
+ * and runs SQLite VACUUM to reclaim free database pages.
+ * 
+ * PRIVACY & STORAGE HARDENING NOTICE (OWASP MASVS-STORAGE / Finding P2):
+ * SQLite DELETE and VACUUM erase application rows, clear database indices,
+ * and compact the SQLite file structure on disk. However, on solid-state flash
+ * storage (UFS/eMMC/NAND), wear-leveling algorithms prevent physical block-level
+ * overwrite guarantees (cryptographic erasure). Data is rendered inaccessible
+ * to standard user and application queries, but low-level unallocated flash cells
+ * may persist until rewritten by device storage controllers.
  */
 export async function hardWipeAllData() {
   const db = await getDb();

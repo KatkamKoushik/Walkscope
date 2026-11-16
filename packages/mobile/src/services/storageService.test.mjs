@@ -36,12 +36,12 @@ function createInMemoryDb() {
         const [
           id, title, origin_name, origin_lat, origin_lon,
           dest_name, dest_lat, dest_lon, distance_m, duration_s,
-          context_score, is_favorite, created_at
+          context_score, is_favorite, created_at, polyline_json, steps_json
         ] = flatParams;
         savedJourneys.set(id, {
           id, title, origin_name, origin_lat, origin_lon,
           dest_name, dest_lat, dest_lon, distance_m, duration_s,
-          context_score, is_favorite, created_at
+          context_score, is_favorite, created_at, polyline_json, steps_json
         });
       } else if (sql.includes('UPDATE saved_journeys SET is_favorite = ? WHERE id = ?')) {
         const [newStatus, id] = flatParams;
@@ -165,6 +165,37 @@ describe('storageService (SQLite Local Storage & Zero-Telemetry Privacy)', () =>
       assert.equal(j.context_score, 80);
       assert.equal(j.is_favorite, 0);
       assert.ok(j.created_at);
+    });
+
+    it('saves and retrieves offline route geometry polyline and maneuver instructions', async () => {
+      const samplePolyline = JSON.stringify([[77.6066, 12.9756], [77.6070, 12.9719]]);
+      const sampleSteps = JSON.stringify([
+        { instruction: 'Head south on MG Road', distanceMeters: 200 },
+        { instruction: 'Turn left onto Brigade Road', distanceMeters: 360 },
+      ]);
+
+      await saveJourney({
+        id: 'journey-offline-1',
+        title: 'MG Road to Brigade Road',
+        origin_name: 'MG Road Metro',
+        origin_lat: 12.9756,
+        origin_lon: 77.6066,
+        dest_name: 'Brigade Road',
+        dest_lat: 12.9719,
+        dest_lon: 77.6070,
+        distance_m: 560,
+        duration_s: 480,
+        context_score: 85,
+        is_favorite: 1,
+        polyline_json: samplePolyline,
+        steps_json: sampleSteps,
+      });
+
+      const journeys = await getSavedJourneys();
+      assert.equal(journeys.length, 1);
+      assert.equal(journeys[0].polyline_json, samplePolyline);
+      assert.equal(journeys[0].steps_json, sampleSteps);
+      assert.deepEqual(JSON.parse(journeys[0].polyline_json), [[77.6066, 12.9756], [77.6070, 12.9719]]);
     });
 
     it('sorts saved journeys with favorites first, then newest first', async () => {

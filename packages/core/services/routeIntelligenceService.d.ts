@@ -129,3 +129,8 @@ export declare function computeRouteIntelligence(params: {
     bufferMeters?: number;
   };
 }): RouteIntelligenceReport;
+
+export declare function rankRouteAlternatives<T = any>(
+  routes: T[],
+  amenities?: any[]
+): T[];

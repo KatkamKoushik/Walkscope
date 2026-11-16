@@ -1,0 +1,129 @@
+{
+  "corridorId": "bengaluru_mg_road_to_brigade_road",
+  "name": "Bengaluru MG Road Metro to Brigade Road Corridor",
+  "provenance": {
+    "source": "OpenStreetMap contributors (ODbL) & Panoramax (CC-BY-SA 4.0)",
+    "capturedDate": "2026-10-31T00:00:00Z",
+    "isSanitizedDemoFixture": true,
+    "disclaimer": "Recorded offline demo fixture for jury replay. Demonstrates verifiable deterministic intelligence without external network dependence."
+  },
+  "origin": {
+    "title": "MG Road Metro Station",
+    "latitude": 12.9756,
+    "longitude": 77.6066
+  },
+  "destination": {
+    "title": "Brigade Road Junction",
+    "latitude": 12.9719,
+    "longitude": 77.6070
+  },
+  "route": {
+    "distanceMeters": 560,
+    "durationSeconds": 480,
+    "geometry": {
+      "type": "LineString",
+      "coordinates": [
+        [77.6066, 12.9756],
+        [77.6067, 12.9745],
+        [77.6068, 12.9732],
+        [77.6070, 12.9719]
+      ]
+    },
+    "steps": [
+      {
+        "distanceMeters": 180,
+        "highway": "primary",
+        "mode": "walking",
+        "name": "Mahatma Gandhi Road",
+        "instruction": "Walk south on Mahatma Gandhi Road"
+      },
+      {
+        "distanceMeters": 210,
+        "highway": "primary",
+        "mode": "walking",
+        "name": "Mahatma Gandhi Road",
+        "instruction": "Continue on Mahatma Gandhi Road"
+      },
+      {
+        "distanceMeters": 170,
+        "highway": "pedestrian",
+        "mode": "walking",
+        "name": "Brigade Road Walkway",
+        "instruction": "Turn left onto Brigade Road Walkway"
+      }
+    ]
+  },
+  "amenities": [
+    {
+      "id": "node/101",
+      "name": "MG Road Metro Station Helpdesk",
+      "category": "transit",
+      "coordinates": [77.6066, 12.9756],
+      "tags": {
+        "railway": "subway_entrance",
+        "amenity": "subway_entrance",
+        "opening_hours": "24/7"
+      }
+    },
+    {
+      "id": "node/102",
+      "name": "Cauvery Arts & Crafts Emporium",
+      "category": "services",
+      "coordinates": [77.6067, 12.9744],
+      "tags": {
+        "shop": "craft",
+        "opening_hours": "Mo-Sa 10:00-20:00"
+      }
+    },
+    {
+      "id": "node/103",
+      "name": "Cubbon Park Police Kiosk",
+      "category": "emergency",
+      "coordinates": [77.6068, 12.9735],
+      "tags": {
+        "amenity": "police",
+        "opening_hours": "24/7"
+      }
+    },
+    {
+      "id": "node/104",
+      "name": "Brigade Road Pharmacy",
+      "category": "services",
+      "coordinates": [77.6070, 12.9721],
+      "tags": {
+        "amenity": "pharmacy",
+        "opening_hours": "Mo-Su 08:00-22:00"
+      }
+    }
+  ],
+  "imagery": {
+    "hasCoverage": true,
+    "coverageRatio": 0.8,
+    "sampledCheckpoints": 5,
+    "availableCheckpoints": 4,
+    "samplingMode": "corridor_checkpoints",
+    "images": [
+      {
+        "id": "panoramax_img_01",
+        "latitude": 12.9756,
+        "longitude": 77.6066,
+        "captureDate": "2026-05-12T08:30:00Z",
+        "is360Panorama": false,
+        "thumbUrl": "https://api.panoramax.xyz/records/01/thumb.jpg",
+        "fullUrl": "https://api.panoramax.xyz/records/01/full.jpg",
+        "attribution": "Panoramax contributors (CC-BY-SA 4.0)"
+      }
+    ]
+  },
+  "goldenExpected": {
+    "totalVenuesCount": 4,
+    "totalDistanceMeters": 560,
+    "informationCoverageScore": 49,
+    "roadShare": {
+      "majorRoadPercent": 70,
+      "footwayPercent": 30,
+      "localRoadPercent": 0,
+      "otherPercent": 0
+    }
+  }
+}
