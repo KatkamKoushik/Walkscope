@@ -289,7 +289,7 @@ jobs:
           persist-credentials: false
 
       - name: Repository Secret Scanning
-        uses: trufflesecurity/trufflehog@v3.99.9
+        uses: trufflesecurity/trufflehog@v3.100.0
         with:
           extra_args: --only-verified
 
